@@ -35,7 +35,7 @@ tokio = { version = "1", features = ["rt", "sync"] }
 aes-gcm = "0.10"
 hmac = "0.12"
 sha2 = "0.10"
-base64 = "0.22"
+base64 = "0.23"
 rand = "0.8"
 # The vault key is a secret held in process memory for the lifetime of the
 # service; `zeroize` wipes it on drop rather than leaving it in a freed
