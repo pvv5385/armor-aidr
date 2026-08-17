@@ -32,4 +32,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # middleware::redis_rate_limit) — tokio-comp for the async runtime already in
 # use everywhere else, connection-manager for an auto-reconnecting handle
 # that's cheap to clone into AppState.
-redis = { version = "0.27", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }
+redis = { version = "1.5", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }
