@@ -14,7 +14,7 @@ path = "src/main.rs"
 armor-core.workspace = true
 armor-storage.workspace = true
 armor-inference-client.workspace = true
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace", "timeout", "compression-gzip"] }

@@ -29,7 +29,7 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "
 # A real loopback server for the transport tests: retries, deadlines and
 # status mapping are behaviours of an HTTP client, and a mocked client would
 # only test the mock.
-axum = "0.7"
+axum = "0.8"
 
 [lib]
 name = "armor_inference_client"
