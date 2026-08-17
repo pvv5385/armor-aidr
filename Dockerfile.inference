@@ -25,7 +25,7 @@
 #   docker build -f Dockerfile.inference -t armor-inference:local .
 #   docker build -f Dockerfile.inference --build-arg WITH_EXPORT=true -t armor-inference:local .
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ARG WITH_EXPORT=false
 
@@ -102,7 +102,7 @@ CMD ["python", "-m", "uvicorn", "armor_inference.main:app", "--host", "0.0.0.0",
 # `WITH_EXPORT=true` — for CI, or a one-off offline fetch without touching a
 # running service. Reachable via `docker compose --profile ml-fetch` (see
 # docker-compose.yml's `ml-fetch` service / `make ml-fetch`).
-FROM python:3.12-slim AS export
+FROM python:3.14-slim AS export
 
 WORKDIR /app
 
