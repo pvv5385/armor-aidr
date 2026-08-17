@@ -1425,7 +1425,14 @@ function optionsFromForm(optionsCell) {
   const extraRaw = wrap.querySelector('.check-options-extra').value;
   if (extraRaw.trim()) {
     try {
-      Object.assign(options, JSON.parse(extraRaw));
+      // Copied key-by-key rather than with Object.assign: the extras blob is
+      // free-form JSON, and a `__proto__`/`constructor` key in it would walk
+      // up the prototype chain instead of landing in `options`.
+      const extra = JSON.parse(extraRaw);
+      for (const key of Object.keys(extra)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+        options[key] = extra[key];
+      }
     } catch (_) {
       // Extras are only malformed if hand-edited storage was — ignore.
     }

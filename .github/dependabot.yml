@@ -17,6 +17,12 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # Newly published versions sit for a week before Dependabot proposes them.
+    # A compromised release is usually yanked within days, and nothing in this
+    # tree needs a crate the day it ships. Security advisories are unaffected:
+    # GitHub raises those immediately regardless of cooldown.
+    cooldown:
+      default-days: 7
     commit-message:
       # DCO sign-off is enforced on every commit in a PR
       # (.github/workflows/dco.yml). Dependabot's own commits are exempt —
@@ -41,6 +47,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "deps(inference)"
     groups:
@@ -53,6 +61,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci"
     groups:
@@ -74,5 +84,7 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "deps(docker)"

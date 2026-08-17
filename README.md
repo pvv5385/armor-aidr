@@ -329,9 +329,10 @@ A flagged entry carries the extra fields:
 **Trigger specific detectors** (each uses a single `messages` entry; a
 `text` string works identically):
 ```bash
-# Secrets (AWS key) — should BLOCK
+# Secrets (AWS key) — should BLOCK. The AKIA… below is a well-formed
+# placeholder, not a live credential: it exists so the detector has a hit.
 curl -s http://localhost:8100/api/v1/aidr/scan -H 'Content-Type: application/json' \
-  -d '{"messages": [{"role": "user", "content": "here is my key AKIAABCDEFGHIJKLMNOP"}]}' | jq '.verdict'
+  -d '{"messages": [{"role": "user", "content": "here is my key AKIAABCDEFGHIJKLMNOP"}]}' | jq '.verdict'  # nosemgrep: generic.secrets.security.detected-aws-access-key-id-value.detected-aws-access-key-id-value
 
 # Prompt injection — should BLOCK
 curl -s http://localhost:8100/api/v1/aidr/scan -H 'Content-Type: application/json' \

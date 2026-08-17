@@ -81,6 +81,9 @@ def _publish_mutation_token(token: str, token_file: str) -> None:
         path.write_text(token)
         os.chmod(path, 0o644)
     except OSError:
+        # Logs the destination path, never `token` — the word "token" in the
+        # message is what the credential-disclosure rule keys off, not a value.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.debug("could not publish mutation token to %s — continuing without it", token_file)
 
 

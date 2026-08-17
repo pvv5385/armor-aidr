@@ -58,6 +58,10 @@ def _factory_for(kind: str) -> Callable[[str, dict], Runner]:
             f"{sorted(set(RUNNER_FACTORIES) | set(_HEAVY_KIND_MODULES))}"
         )
     try:
+        # `module_path` is never caller-supplied: `kind` only reaches here after
+        # a lookup in `_HEAVY_KIND_MODULES` above, so the imported name is one
+        # of five literals in this file.
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(module_path)
     except ImportError as exc:
         raise RunnerUnavailable(
