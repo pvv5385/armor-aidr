@@ -19,7 +19,7 @@ tokio = { version = "1", features = ["net", "time"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "rustls-native-certs"] }
 # Bounded result cache (cache.rs) — same version armor-api already pins.
 # 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
-lru = "0.16"
+lru = "0.18"
 # The cache key (cache.rs) needs collision resistance, not just speed — same
 # version armor-api/armor-storage already pin.
 sha2 = "0.10"

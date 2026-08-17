@@ -52,7 +52,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 # install_id / event_id generation (telemetry.rs, heartbeat.rs, install_state.rs).
 uuid = { version = "1", features = ["v4"] }
 # 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
-lru = "0.16"
+lru = "0.18"
 # CIDR parsing for ARMOR_TRUSTED_PROXIES (middleware/rate_limit.rs's
 # trusted-hop X-Forwarded-For resolution). Already a transitive dep via
 # reqwest's resolver stack, so promoting it to direct adds no new crate.
