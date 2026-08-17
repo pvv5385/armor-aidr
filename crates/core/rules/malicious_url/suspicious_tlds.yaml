@@ -1,0 +1,22 @@
+# TLDs with disproportionately high phishing/abuse rates in public threat
+# intel (Spamhaus/Interisle "most abused TLD" reporting, and the Freenom
+# free TLDs specifically). Not malicious by themselves — same "signal, not
+# a guaranteed positive" framing as shorteners.yaml. Alphabetized.
+- .buzz
+- .cam
+- .cf
+- .click
+- .cyou
+- .ga
+- .gq
+- .icu
+- .info
+- .link
+- .ml
+- .pw
+- .rest
+- .surf
+- .tk
+- .top
+- .work
+- .xyz

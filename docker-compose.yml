@@ -1,0 +1,283 @@
+# Rules only, no ML, nothing to download:
+#
+#   docker compose up          (or `make quickstart`, see scripts/quickstart.sh)
+#
+# Add the model-backed inference tier — a separate image, started only when
+# asked for. `make ml-up` is the one-liner; by hand it's the same thing:
+#
+#   docker compose --profile ml up
+#
+# armor-core's ARMOR_INFERENCE_URL defaults to http://inference:9000 (see
+# below), so starting the sidecar under the `ml` profile also wires armor-api
+# at it — no second env var to remember. Override it if you're pointing at a
+# sidecar that isn't this compose file's `inference` service:
+#
+#   ARMOR_INFERENCE_URL=http://your-sidecar:9000 docker compose --profile ml up
+#
+# The sidecar boots on stub runners with no weights. Getting real models in is
+# an explicit operator step, any of three ways:
+#
+#   * fetch via Docker:  make ml-fetch TASK=prompt_injection   (no local
+#                         Python/torch install — see the `ml-fetch` service
+#                         below and Dockerfile.inference's `export` stage)
+#   * mount them:         ARMOR_MODELS_DIR=./models docker compose --profile ml up
+#   * install them:       POST to /v1/models/install from inside the compose
+#                         network (see inference/README.md). The sidecar's
+#                         port is deliberately NOT published to the host — it
+#                         answers only on the internal network, reachable by
+#                         armor-core and nothing else.
+#
+# See inference/README.md for all three, and inference/MODELS.md for licenses.
+services:
+  armor-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: armor-core:local
+    container_name: armor-core
+    ports:
+      - "8100:8100"
+    environment:
+      ARMOR_BIND_ADDR: 0.0.0.0:8100
+      ARMOR_POLICY_PATH: /app/config/policies.yaml
+      RUST_LOG: info
+      # Off by default. Set ARMOR_AUTH_MODE=api_key and ARMOR_API_KEYS to a
+      # comma-separated key list to require `Authorization: Bearer <key>` or
+      # `X-API-Key` on /api/v1/aidr/scan.
+      ARMOR_AUTH_MODE: none
+      # ARMOR_API_KEYS: key-one,key-two
+      # Off by default. Set ARMOR_RATE_LIMIT_MODE=fixed for an in-process,
+      # per-client-IP token bucket (ARMOR_RATE_LIMIT_RPS / _BURST, default
+      # 10/20) on /api/v1/aidr/scan. Set ARMOR_RATE_LIMIT_MODE=redis for the
+      # same token-bucket algorithm enforced atomically in Redis instead of
+      # in-process — every replica behind a load balancer then shares one
+      # budget per client IP rather than each enforcing its own. Uses
+      # ARMOR_REDIS_URL below, which already points at the `redis` service
+      # in this compose file.
+      ARMOR_RATE_LIMIT_MODE: none
+      # ARMOR_RATE_LIMIT_RPS: "10"
+      # ARMOR_RATE_LIMIT_BURST: "20"
+      # Only consulted when ARMOR_RATE_LIMIT_MODE=redis (see above). Set
+      # unconditionally since the `redis` service always runs alongside
+      # postgres; harmless when rate limiting stays off or in-process.
+      ARMOR_REDIS_URL: redis://redis:6379
+      # Turns on the Postgres-backed control plane (profiles/applications
+      # CRUD + the /ui management UI) — see README.md's "Postgres-backed
+      # profiles + management UI" section. Comment out to go back to the
+      # file-based-only profiles/applications behavior.
+      DATABASE_URL: postgres://armor:armor@postgres:5432/armor
+      # Where the ML tier lives. Defaults to this compose file's `inference`
+      # service, so `docker compose --profile ml up` wires armor-api at it
+      # automatically. With the `ml` profile off, `inference` never starts —
+      # armor-api still resolves the URL, fails to connect, and comes up
+      # rules-only: `wire_inference` (`main.rs`) logs a warning rather than
+      # refusing to start, and the control-plane UI's hardware/models panels
+      # and the Test tab's banner report the sidecar as unreachable
+      # per-request instead. Override to point at a different sidecar, or set
+      # to an empty string to force rules-only even with `--profile ml up`.
+      ARMOR_INFERENCE_URL: ${ARMOR_INFERENCE_URL:-http://inference:9000}
+      # The credential core presents to the sidecar; it must match the
+      # `inference` service's ARMOR_INFERENCE_AUTH_TOKEN. Empty when unset,
+      # which is fine while the sidecar is unreachable from outside the
+      # compose network.
+      ARMOR_INFERENCE_AUTH_TOKEN: ${ARMOR_INFERENCE_AUTH_TOKEN:-}
+      # Deadline for one inference call / the whole escalation pass. The
+      # binary's own built-in defaults (120ms / 250ms — see
+      # crates/api/src/config.rs's InferenceConfig doc comments) are sized for
+      # an INT8-quantized model on server-class hardware, not a CPU-only dev
+      # box: a real (non-stub) catalog model measured on ordinary CPU hardware
+      # runs 85-540ms solo and well over a second under concurrent escalation
+      # — comfortably blowing the built-in
+      # budget before ONNX Runtime even returns. Bumped here, not in the
+      # binary default, so a production deploy on real GPU/server hardware
+      # keeps the tight budget unless it opts out too. Only load-bearing once
+      # `ARMOR_INFERENCE_PROFILE=catalog` is serving real models — harmless
+      # against the stub profile's near-instant responses.
+      ARMOR_INFERENCE_TIMEOUT_MS: ${ARMOR_INFERENCE_TIMEOUT_MS:-2000}
+      ARMOR_INFERENCE_BUDGET_MS: ${ARMOR_INFERENCE_BUDGET_MS:-3000}
+    volumes:
+      - ./config:/app/config:ro
+      # Read-only: this is where the sidecar publishes its own
+      # auto-generated install/reload token when ARMOR_INFERENCE_AUTH_TOKEN
+      # isn't set on either side, so install works with nothing configured —
+      # see inference's `armor-inference-shared-token` mount below and
+      # ARMOR_INFERENCE_TOKEN_FILE in crates/api/src/config.rs. Set
+      # ARMOR_INFERENCE_AUTH_TOKEN explicitly (same value on both services)
+      # for a stable token across restarts instead; it always takes
+      # priority over anything found here.
+      - armor-inference-shared-token:/var/run/armor:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # The optional ML sidecar. `profiles: ["ml"]` keeps it out of a plain
+  # `docker compose up` — the deterministic tier must never depend on it.
+  #
+  # No port is published: the sidecar binds inside the compose network only
+  # and answers to armor-core (the one caller). There is no host route to
+  # it — reaching for it over HTTP from the host is a deliberate 404.
+  inference:
+    profiles: ["ml"]
+    build:
+      context: .
+      dockerfile: Dockerfile.inference
+      target: runtime
+      args:
+        # Off by default: every catalog default installs by downloading an
+        # already-published ONNX graph, so torch buys nothing for the
+        # shipped configuration. Set to "true" (and rebuild) only if you've
+        # pinned a candidate from config/ml_catalog.yaml's alternatives that
+        # is noted as needing it (e.g. unitary/toxic-bert) and want its
+        # install to work over HTTP instead of via `make ml-fetch`.
+        WITH_EXPORT: ${ARMOR_INFERENCE_WITH_EXPORT:-false}
+    image: armor-inference:local
+    container_name: armor-inference
+    volumes:
+      # Defaults to a managed volume, so installs survive a recreate without
+      # anyone having to prepare a host directory. Point it at a path to use
+      # your own instead — a value starting with `.` or `/` is a bind mount:
+      #
+      # ARMOR_MODELS_DIR=./models docker compose --profile ml up
+      #
+      # Append `:ro` here if you pre-fetch everything and want the container
+      # to have no way to write to it. Installs need it writable.
+      - ${ARMOR_MODELS_DIR:-armor-models}:/models
+      # Shared with armor-core (read-only there) so an auto-generated
+      # install/reload token can cross the container boundary without an
+      # operator setting ARMOR_INFERENCE_AUTH_TOKEN on both sides by hand —
+      # see armor-core's matching mount above and main.py's
+      # `_publish_mutation_token`. tmpfs (below): the token only ever needs
+      # to survive this boot, and never touches disk.
+      - armor-inference-shared-token:/var/run/armor
+    environment:
+      ARMOR_INFERENCE_ARTIFACTS_DIR: /models
+      # Boots on stub runners: no ML dependencies, no weights, no network.
+      # Switch to `catalog` once weights are in place to load every task in
+      # config/ml_catalog.yaml at its pinned model — tasks whose artifacts are
+      # missing report `available: false` and 503, and the rest keep serving.
+      # ARMOR_INFERENCE_PROFILE: stub
+      ARMOR_INFERENCE_PROFILE: catalog
+      #
+      # Or name the tasks explicitly, which is what `armor-inference-fetch`
+      # prints for you (including the sha256 to pin):
+      # ARMOR_INFERENCE_TASKS: >
+      # {"prompt_injection":{"runner":"classifier",
+      # "model_id":"protectai/deberta-v3-base-prompt-injection-v2",
+      # "revision":"main","sha256":"<from the fetch>","threshold":0.5}}
+      #
+      # Lets POST /v1/models/install download weights into /models on a
+      # running container and hot-swap the task onto them. Off in the image's
+      # own default; on here because reaching for `--profile ml` is the
+      # operator action that makes it reasonable. Turn it back off for a
+      # deployment whose weights are baked into the mount.
+      #
+      # Every catalog default installs via direct ONNX download — no export,
+      # no torch, regardless of WITH_EXPORT above. If you've pinned an
+      # alternative that needs export (see config/ml_catalog.yaml's
+      # candidates notes) and built with WITH_EXPORT=true, know that the
+      # export then runs in-process in this same container: a large model's
+      # export briefly spikes memory alongside whatever's already serving.
+      # On a memory-constrained host, prefer `make ml-fetch` (a disposable
+      # container) for that instead of triggering it here.
+      ARMOR_INFERENCE_ALLOW_INSTALL: "true"
+      # The one credential that opens the sidecar. Set the same value on
+      # armor-core above and /v1 refuses anything without
+      # `Authorization: Bearer <token>`. Unset (empty) here because the port
+      # is not published — the sidecar is reachable only on the compose
+      # network, where armor-core is its only companion. Set it the moment
+      # that stops being true; the token rides on top of the network boundary,
+      # it is not a substitute for one.
+      ARMOR_INFERENCE_AUTH_TOKEN: ${ARMOR_INFERENCE_AUTH_TOKEN:-}
+      # Only needed for a candidate model that is gated on the Hub (e.g.
+      # vijil/mbert-prompt-injection) — huggingface_hub reads this env var
+      # itself for every download/export call, no code on our side has to
+      # pass it through. Unset (empty) here because every catalog default is
+      # a public repo. Get one at https://huggingface.co/settings/tokens
+      # after requesting/accepting access to the gated repo itself.
+      HF_TOKEN: ${HF_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  # One-off helper, not a long-running service: runs `armor-inference-fetch`
+  # inside Docker so getting a real model in needs no local Python/torch
+  # install (that stack is ~2GB — see Dockerfile.inference's `export` stage).
+  # `docker compose run --rm` starts it, it fetches, exports to ONNX,
+  # quantizes, writes into the same volume the `inference` service mounts,
+  # prints the sha256 to pin, and exits.
+  #
+  # docker compose --profile ml-fetch run --rm ml-fetch --task prompt_injection
+  # make ml-fetch TASK=prompt_injection # the same thing
+  #
+  # This shortens "get the bytes onto disk", not "trust the bytes": the
+  # printed sha256 still has to be reviewed by a human and pasted into
+  # ARMOR_INFERENCE_TASKS (or ml_catalog.yaml's pin) as a separate step.
+  ml-fetch:
+    profiles: ["ml-fetch"]
+    build:
+      context: .
+      dockerfile: Dockerfile.inference
+      target: export
+    image: armor-inference-fetch:local
+    volumes:
+      - ${ARMOR_MODELS_DIR:-armor-models}:/models
+    environment:
+      ARMOR_INFERENCE_ARTIFACTS_DIR: /models
+      # See the `inference` service's HF_TOKEN comment above — same deal,
+      # only needed for a gated candidate model.
+      HF_TOKEN: ${HF_TOKEN:-}
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: armor-postgres
+    environment:
+      POSTGRES_DB: armor
+      POSTGRES_USER: armor
+      POSTGRES_PASSWORD: armor
+    volumes:
+      - armor-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U armor -d armor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Backs the distributed rate limiter (ARMOR_RATE_LIMIT_MODE=redis, above).
+  # No volume: rate-limit buckets are self-expiring (the Lua script sets a
+  # TTL on every key — see middleware/redis_rate_limit.rs) and disposable by
+  # design, so there's nothing here worth surviving a restart.
+  redis:
+    image: redis:7-alpine
+    container_name: armor-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  armor-postgres-data:
+  # Only created when ARMOR_MODELS_DIR is left at its default.
+  armor-models:
+  # tmpfs-backed: carries the sidecar's auto-generated install/reload token
+  # to armor-core (see both services' /var/run/armor mounts above) without
+  # ever writing it to disk — gone the moment this volume is torn down.
+  armor-inference-shared-token:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs

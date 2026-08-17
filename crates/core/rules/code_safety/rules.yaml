@@ -1,0 +1,167 @@
+# Code-safety pattern bank — scanned only against the content of fenced
+# (```) code blocks in a response, not the surrounding prose, so ordinary
+# English discussion of "SQL injection" or "path traversal" doesn't trip
+# this check (that's `harmful_content`/`jailbreak`'s concern, not this
+# one's). Structural code shapes indicative of SQLi/XSS/command-injection/
+# SSRF/path-traversal being handed to a user as example/generated code.
+#
+# Own pattern set, not ported from any third party.
+#
+# sql-string-concatenation is deliberately spread across 6 entries below —
+# one shared `id` (config/benchmarks/code_safety_v1.yaml's corpus labels
+# every SQL-injection-via-string-building sample with this one rule_id,
+# regardless of which concrete code shape it uses) matched by several
+# regexes, each covering a different way a query gets built unsafely:
+# same-line two-sided concat, one-sided concat (`+` or PHP `.`), a
+# sql/query-named var reassigned across lines, `.format()`/`String.format`,
+# the `%` operator applied directly to the literal, and f-string/template-
+# literal/Ruby interpolation.
+
+- id: sql-string-concatenation
+  description: SQL query built via string concatenation with a variable on both sides
+  category: sqli
+  regex: '(?i)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n;]{0,80}["'']\s*\+\s*\w+\s*\+\s*["'']'
+- id: sql-string-concatenation
+  description: SQL query with a variable concatenated onto one side only (JS/Java/Go `+`, PHP `.`)
+  category: sqli
+  regex: '(?i)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n;]{0,80}["'']\s*(?:\+|\.)\s*\$?\w+'
+- id: sql-string-concatenation
+  description: A sql/query-named variable reassigned via concatenation, possibly across lines (`+=`, parenthesized continuation)
+  category: sqli
+  regex: '(?is)\b\$?\w*(?:sql|query)\w*\b\s*\+?=\s*[\s\S]{0,150}?\+'
+- id: sql-string-concatenation
+  description: SQL query built via .format()/String.format() string formatting
+  category: sqli
+  regex: '(?is)(?:["''][^\n;]{0,80}\b(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n;]{0,80}["'']\s*\.\s*format\s*\(|\bformat\s*\(\s*["''][^\n;]{0,80}\b(?:SELECT|INSERT|UPDATE|DELETE)\b)'
+- id: sql-string-concatenation
+  description: SQL query built via the `%` string-formatting operator applied directly to the literal
+  category: sqli
+  regex: '(?is)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,150}?%s[\s\S]{0,10}?(?:"""|''''''|["''])\s*%\s*\(?\w'
+- id: sql-string-concatenation
+  description: SQL query built via string interpolation (Python f-string, JS template literal, C# `$"..."`, Ruby `#{}`)
+  category: sqli
+  regex: '(?i)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n;]{0,80}(?:\{\w+\}|\$\{\w+\}|#\{\w+\})'
+- id: sql-union-based-injection
+  description: UNION-based SQL injection payload
+  category: sqli
+  regex: '(?i)\bUNION\s+(?:ALL\s+)?SELECT\b'
+- id: sql-stacked-query-destructive
+  description: Stacked query followed by a destructive statement
+  category: sqli
+  regex: '(?i);\s*(?:DROP|DELETE|TRUNCATE|ALTER|CREATE)\s+'
+- id: sql-tautology-injection
+  description: Classic OR-based tautology injection payload (OR 1=1 / OR ''='')
+  category: sqli
+  regex: '(?i)\bOR\s+(?:1\s*=\s*1\b|[''"]\s*[''"]\s*=\s*[''"]\s*[''"])'
+- id: sql-time-based-injection
+  description: Time-based blind SQL injection payload (WAITFOR DELAY / OR|; SLEEP(n))
+  category: sqli
+  # SLEEP(n) itself is only flagged when preceded by an injection idiom
+  # (`OR `/`;`) rather than bare — otherwise this collides with an ordinary
+  # `time.sleep(5)`/`sleep(5)` call in non-SQL code, since sqli rules apply
+  # to every fenced block regardless of language.
+  regex: '(?i)\bWAITFOR\s+DELAY\b|(?:\bOR\s+|;\s*)SLEEP\s*\(\s*\d+\s*\)'
+- id: xss-innerhtml-concat
+  description: innerHTML assigned from concatenated/untrusted content
+  category: xss
+  regex: '(?i)\.innerHTML\s*=\s*[^\n;]*\+'
+- id: command-injection-shell-exec
+  description: Shell/process execution built from concatenated input
+  category: command_injection
+  regex: '(?i)\b(?:os\.system|subprocess\.(?:call|run|Popen)|shell_exec|child_process\.exec)\s*\([^\n)]*\+'
+- id: ssrf-unvalidated-url-fetch
+  description: HTTP fetch built directly from a request/user-controlled value
+  category: ssrf
+  regex: '(?i)\b(?:requests\.get|requests\.post|fetch|urlopen|axios\.get)\s*\(\s*(?:req\.|request\.|input\(|user_)'
+- id: path-traversal-sequence
+  description: Repeated parent-directory traversal sequence
+  category: path_traversal
+  regex: '(?:\.\.[/\\]){2,}'
+
+# Python-specific insecure deserialization. Language-scoped because
+# pickle/yaml/marshal are Python stdlib names — scanning every code block
+# regardless of language would be pointless (no other language has these
+# exact call shapes) and risks matching an unrelated `pickle`/`marshal`
+# identifier in a non-Python context.
+- id: python-pickle-deserialization
+  description: pickle.loads()/Unpickler deserializes arbitrary objects — can execute code on untrusted data
+  category: insecure_deserialization
+  languages: [python]
+  regex: '\bpickle\.(?:loads?|Unpickler)\s*\('
+- id: python-yaml-unsafe-load
+  description: yaml.load()/yaml.unsafe_load() without a safe loader can execute arbitrary code
+  category: insecure_deserialization
+  languages: [python]
+  regex: '\byaml\.(?:load|unsafe_load)\s*\('
+- id: python-marshal-deserialization
+  description: marshal.loads() is unsafe with untrusted data
+  category: insecure_deserialization
+  languages: [python]
+  regex: '\bmarshal\.loads?\s*\('
+
+# JavaScript-specific. `languages:` scopes each rule to fenced blocks whose
+# hint (js/javascript/jsx/ts/tsx/typescript) resolves to the "javascript"
+# bucket in code_safety.rs's canonical_language() — needed here because
+# these shapes (bare `eval(`, `dangerouslySetInnerHTML`, prototype-pollution
+# property names) aren't language-specific-looking enough on their own to
+# safely scan against every code block regardless of language.
+- id: xss-outerhtml-concat
+  description: outerHTML assigned from concatenated/untrusted content
+  category: xss
+  languages: [javascript]
+  regex: '(?i)\.outerHTML\s*=\s*[^\n;]*\+'
+- id: xss-document-write-dynamic
+  description: document.write() called with concatenated or template-interpolated content
+  category: xss
+  languages: [javascript]
+  regex: '(?i)\bdocument\.write\s*\([^\n)]*(?:\+|\$\{)'
+- id: xss-dangerously-set-innerhtml
+  description: React dangerouslySetInnerHTML bypasses built-in XSS escaping
+  category: xss
+  languages: [javascript]
+  regex: 'dangerouslySetInnerHTML'
+- id: js-eval-call
+  description: eval() executes arbitrary code from a string
+  category: command_injection
+  languages: [javascript]
+  regex: '\beval\s*\('
+- id: js-new-function-constructor
+  description: new Function() compiles code from a string — same risk as eval()
+  category: command_injection
+  languages: [javascript]
+  regex: '\bnew\s+Function\s*\('
+- id: js-settimeout-string-arg
+  description: setTimeout/setInterval given a string body executes it like eval()
+  category: command_injection
+  languages: [javascript]
+  regex: '\bset(?:Timeout|Interval)\s*\(\s*["''`]'
+- id: js-prototype-pollution
+  description: Prototype-pollution-prone property access (__proto__/constructor[/prototype[)
+  category: prototype_pollution
+  languages: [javascript]
+  regex: '(?:__proto__|constructor\s*\[|prototype\s*\[)'
+
+# Shell-specific. Language-scoped for the same reason as the JavaScript
+# rules above, but doubly necessary here: shell's `` `$var` `` backtick
+# command substitution is byte-for-byte the same shape as a JS template
+# literal, so without scoping, this rule would fire on ordinary JS code.
+- id: shell-pipe-to-shell
+  description: curl/wget output piped directly into a shell — remote code execution
+  category: command_injection
+  languages: [shell]
+  regex: '\b(?:curl|wget)\b.+\|\s*(?:sudo\s+)?(?:ba|z)?sh\b'
+- id: shell-insecure-chmod
+  description: chmod granting world-writable or world-readable-writable permissions
+  category: insecure_permissions
+  languages: [shell]
+  regex: '\bchmod\s+(?:777|666)\b'
+- id: shell-eval
+  description: Shell eval executes an arbitrary constructed command string
+  category: command_injection
+  languages: [shell]
+  regex: '\beval\b'
+- id: shell-backtick-command-substitution
+  description: Variable interpolated inside backtick command substitution
+  category: command_injection
+  languages: [shell]
+  regex: '`[^`]*\$\w+[^`]*`'

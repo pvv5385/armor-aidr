@@ -1,0 +1,43 @@
+# System-prompt / internal-config / conversation-memory extraction attempts —
+# distinct from `secrets` (known-format regex on API keys/tokens) and
+# `prompt_injection` (instruction-override/hijack structure): this matches
+# "give me your internals" requests specifically, regardless of whether an
+# override attempt accompanies them.
+#
+# Three sub-categories:
+#   - system_prompt: requests to reveal/repeat the system prompt or initial
+#     instructions verbatim.
+#   - config: requests to dump internal configuration, environment
+#     variables, or API keys the caller believes the model has access to.
+#   - memory: requests to reveal conversation memory or hidden context the
+#     caller isn't supposed to see directly.
+#
+# Own pattern set, not ported from any third party.
+- id: reveal-system-prompt
+  description: Direct request to reveal the system prompt or initial instructions
+  category: system_prompt
+  regex: '(?i)\b(?:reveal|show|print|output|repeat|display)\s+(?:me\s+)?(?:your\s+|the\s+)?(?:system\s+prompt|initial\s+instructions|system\s+message)\b'
+- id: repeat-instructions-verbatim
+  description: Request to repeat prior instructions verbatim/word-for-word
+  category: system_prompt
+  regex: '(?i)\b(?:repeat|output)\s+(?:the\s+)?(?:above|previous)\s+(?:instructions?|text|prompt)\s+(?:verbatim|exactly|word[- ]for[- ]word)\b'
+- id: what-are-your-instructions
+  description: Direct question asking for the model's exact instructions
+  category: system_prompt
+  regex: '(?i)\bwhat\s+(?:are|were)\s+your\s+(?:exact\s+)?(?:instructions|system\s+prompt|guidelines)\b'
+- id: dump-config
+  description: Request to dump internal configuration or environment variables
+  category: config
+  regex: '(?i)\b(?:dump|export|print)\s+(?:your\s+|the\s+)?(?:config(?:uration)?|environment\s+variables?|internal\s+settings)\b'
+- id: reveal-api-keys-env
+  description: Request to reveal API keys or environment variables
+  category: config
+  regex: '(?i)\b(?:show|print|reveal)\s+(?:me\s+)?(?:your\s+|the\s+)?(?:api\s+keys?|env(?:ironment)?\s+variables?)\b'
+- id: memory-dump-request
+  description: Request to dump conversation/session memory
+  category: memory
+  regex: '(?i)\b(?:show|dump|reveal)\s+(?:me\s+)?(?:your\s+|the\s+)?(?:conversation\s+)?memory\b'
+- id: print-hidden-context
+  description: Request to print hidden context or instructions
+  category: memory
+  regex: '(?i)\bprint\s+(?:the\s+)?hidden\s+(?:context|prompt|instructions)\b'

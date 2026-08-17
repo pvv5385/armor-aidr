@@ -1,0 +1,37 @@
+# Excessive-agency pattern bank (base tier) — rule-based risk scoring on
+# agent plans/loop steps by action class. Deep contextual judgment on tool
+# arguments ("is this SQL predicate actually an exploit") would need an LLM
+# judge call and isn't handled here; this is the deterministic
+# surface-level layer: does the plan/step text itself describe a
+# destructive, financial, privilege-escalation, or arbitrary-code-execution
+# action.
+#
+# `destructive` is Critical severity (irreversible data loss); the other
+# three are High.
+#
+# Own pattern set, not ported from any third party.
+- id: destructive-action
+  description: Plan step describes an irreversible destructive action
+  category: destructive
+  # Two shapes: data destruction (delete/drop/... a database/table/disk/
+  # volume/backup, tolerating up to two descriptive words in between, e.g.
+  # "delete the primary storage volume") and service disruption (shut
+  # down/disable an api/service/server).
+  regex: '(?i)\b(?:delete|drop|truncate|wipe|format)\s+(?:the\s+|every\s+)?(?:\w+\s+){0,2}(?:database|table|disk|volume|production|backups?|archives?)\b|\b(?:shut\s+down|disable)\s+(?:the\s+)?(?:\w+\s+){0,2}(?:api|service|server)\b'
+- id: financial-action
+  description: Plan step describes transferring, approving, or issuing money
+  category: financial
+  # Two shapes: moving funds directly (transfer/wire funds/money/$amount)
+  # and approving/issuing a payment or refund.
+  regex: '(?i)\b(?:transfer|wire)\s+(?:the\s+)?(?:funds|money|\$[\d,]+(?:\.\d+)?)\b|\b(?:approve|issue)\s+(?:an?\s+)?(?:\w+\s+){0,1}(?:payment|refund)\b'
+- id: privilege-escalation-action
+  description: Plan step describes granting elevated privileges or disabling authentication
+  category: privilege_escalation
+  # grant/escalate ... admin(istrator)/root/superuser access/privileges,
+  # tolerating an arbitrary connecting phrase ("myself", "my account to")
+  # short of a sentence boundary; plus disabling authentication outright.
+  regex: '(?i)\b(?:grant|escalate)\b[^.\n]{0,40}?\b(?:admin(?:istrator)?|root|superuser)\s+(?:access|privileges?)\b|\bdisable\s+(?:\w+\s+){0,2}(?:authentication|auth)\b'
+- id: code-exec-action
+  description: Plan step describes executing arbitrary/untrusted code
+  category: code_exec
+  regex: '(?i)\b(?:execute|run)\s+(?:the\s+|every\s+|an?\s+)?(?:\w+\s+){0,2}(?:code|executable|script|binary)\b'

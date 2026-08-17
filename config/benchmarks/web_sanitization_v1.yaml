@@ -1,0 +1,59 @@
+# Web-sanitization benchmark corpus v1 - labelled samples for every
+# pattern in rules/web_sanitization/rules.yaml. Same acceptance convention
+# as exfiltration_v1.yaml — see
+# crates/core/tests/web_sanitization_benchmark.rs.
+
+dataset_name: web-sanitization-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: script-tag-1, rule_id: script-tag, text: "<script>alert(1)</script>" }
+  - { id: script-tag-2, rule_id: script-tag, text: "click here <script src=\"evil.js\"></script>" }
+  - { id: event-handler-attribute-1, rule_id: event-handler-attribute, text: "<img src=x onerror=\"alert(1)\">" }
+  - { id: event-handler-attribute-2, rule_id: event-handler-attribute, text: "<div onclick=\"doEvil()\">click</div>" }
+  - { id: javascript-uri-1, rule_id: javascript-uri, text: "<a href=\"javascript:alert(1)\">click</a>" }
+  - { id: javascript-uri-2, rule_id: javascript-uri, text: "<a href='javascript:doEvil()'>go</a>" }
+  - { id: iframe-tag-1, rule_id: iframe-tag, text: "<iframe src=\"evil.com\"></iframe>" }
+  - { id: iframe-tag-2, rule_id: iframe-tag, text: "embed this: <iframe></iframe>" }
+  - { id: data-uri-html-1, rule_id: data-uri-html, text: "here: data:text/html;base64,PHNjcmlwdD4=" }
+  - { id: data-uri-html-2, rule_id: data-uri-html, text: "click <a href=\"data:text/html;base64,abcXYZ\">here</a>" }
+
+  # ----------------------------------------------------------------------
+  # Ammonia sanitizer-diff pass (attribute shapes the hand-written rules
+  # above don't name individually — see web_sanitization.rs's
+  # ammonia_stripped_hits). Not checked by every_rule_meets_the_coverage_
+  # target (that test only enumerates rules/web_sanitization/rules.yaml,
+  # and these two rule_ids are generated in code, not data), but kept here
+  # for the same recall/FPR regression coverage every other rule gets.
+  # ----------------------------------------------------------------------
+  - { id: sanitizer-stripped-event-handler-1, rule_id: sanitizer-stripped-event-handler, text: "<div onmouseenter=\"steal()\">hover</div>" }
+  - { id: sanitizer-stripped-event-handler-2, rule_id: sanitizer-stripped-event-handler, text: "<button onwheel=\"track()\">scroll</button>" }
+  - { id: sanitizer-stripped-dangerous-url-1, rule_id: sanitizer-stripped-dangerous-url, text: "<video poster=\"javascript:alert(1)\">v</video>" }
+  - { id: sanitizer-stripped-dangerous-url-2, rule_id: sanitizer-stripped-dangerous-url, text: "<form action=\"javascript:evil()\">submit</form>" }
+
+negative_samples:
+  - { id: n-script-tag-1, rule_ids: [script-tag], text: "the movie script was great" }
+  - { id: n-script-tag-2, rule_ids: [script-tag], text: "we need to write a shell script for deployment" }
+  - { id: n-event-handler-attribute-1, rule_ids: [event-handler-attribute], text: "please onboard the new employee this week" }
+  - { id: n-event-handler-attribute-2, rule_ids: [event-handler-attribute], text: "click the button below to continue" }
+  - { id: n-javascript-uri-1, rule_ids: [javascript-uri], text: "<a href=\"https://example.com\">click</a>" }
+  - { id: n-javascript-uri-2, rule_ids: [javascript-uri], text: "JavaScript is a great language to learn" }
+  - { id: n-iframe-tag-1, rule_ids: [iframe-tag], text: "we need a good frame for this picture" }
+  - { id: n-iframe-tag-2, rule_ids: [iframe-tag], text: "the iframe API was deprecated in the new spec" }
+  - { id: n-data-uri-html-1, rule_ids: [data-uri-html], text: "check out our data analysis dashboard" }
+  - { id: n-data-uri-html-2, rule_ids: [data-uri-html], text: "text/html content type is standard for web pages" }
+  - { id: n-sanitizer-event-handler-1, rule_ids: [sanitizer-stripped-event-handler], text: "if x < 5 and y > 10, print done" }
+  - { id: n-sanitizer-event-handler-2, rule_ids: [sanitizer-stripped-event-handler], text: "<a href='https://example.com' title='hi & bye'>text</a>" }
+  - { id: n-sanitizer-dangerous-url-1, rule_ids: [sanitizer-stripped-dangerous-url], text: "Use the <YOUR_API_KEY> placeholder here" }
+  - { id: n-sanitizer-dangerous-url-2, rule_ids: [sanitizer-stripped-dangerous-url], text: "<a href=\"mailto:me@example.com\">mail</a>" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me write a cover letter for a marketing role?" }
+  - { id: gb-2, text: "What's the best way to learn a new programming language?" }
+  - { id: gb-3, text: "Summarize the plot of this short story for me" }
+  - { id: gb-4, text: "How do I format a table in Markdown?" }
+  - { id: gb-5, text: "Give me three tips for better time management" }
+  - { id: gb-6, text: "Explain the difference between HTTP and HTTPS" }
+  - { id: gb-7, text: "Help me write a friendly out-of-office reply" }
+  - { id: gb-8, text: "What's a good icebreaker question for a team meeting?" }

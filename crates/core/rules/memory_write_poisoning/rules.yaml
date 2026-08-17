@@ -1,0 +1,24 @@
+# Memory-write-poisoning pattern bank — instruction-shaped content and
+# identity/role-change attempts targeting an agent's persistent memory
+# store, as opposed to the current turn's context (`prompt_injection`) or a
+# retrieved document (`retrieval_chunk_injection`). A write that plants a
+# fake identity or a standing directive is more dangerous than an ordinary
+# injection attempt because it persists across future turns/sessions.
+#
+# Own pattern set, not ported from any third party.
+- id: memory-identity-override
+  description: Attempts to plant a persistent fake identity via a memory write
+  category: identity_change
+  regex: '(?i)\bremember\s*:\s*(?:you\s+are|your\s+name\s+is)\b'
+- id: memory-instruction-injection
+  description: Attempts to plant an instruction-shaped directive in memory
+  category: instruction_injection
+  regex: '(?i)\bsave\s+to\s+memory\s*:\s*(?:ignore|disregard|always)\b'
+- id: memory-role-rename
+  description: Attempts to rename the agent's role/persona via a memory write
+  category: identity_change
+  regex: '(?i)\byou\s+(?:are|will\s+be)\s+now\s+(?:known|referred\s+to)\s+as\b'
+- id: memory-persistent-directive
+  description: Attempts to plant a standing directive that survives future turns
+  category: instruction_injection
+  regex: '(?i)\bfrom\s+now\s+on\s+always\s+(?:obey|follow|comply\s+with)\s+(?:this|these)\s+instructions?\b'

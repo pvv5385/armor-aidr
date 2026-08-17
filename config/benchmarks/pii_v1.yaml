@@ -1,0 +1,78 @@
+# PII benchmark corpus v1 - REPRESENTATIVE, not exhaustive. The ruleset
+# ships ~66 entity patterns (rules/pii/rules.yaml); this corpus covers 12
+# spanning the no-validator, context-excluded, and checksum-free entity
+# shapes: email, phone (context_exclude), ssn (context_exclude), ipv4
+# (private-IP skip logic), iban, mac address, ethereum address, passport,
+# vin, in-upi (context_exclude_after), uk vat, medical record number.
+# Checksum-validated entities (br_cpf, au_acn, in_aadhaar, uk_nhs, etc.) are
+# already covered by dedicated inline unit tests in
+# crates/core/src/detectors/pii.rs (valid-checksum-denies /
+# invalid-checksum-allows pairs per entity) rather than duplicated here.
+# See crates/core/tests/pii_benchmark.rs.
+
+dataset_name: pii-v1
+version: 1
+created: 2026-07-30
+
+entities_covered: [email, phone, ssn, ip_address, iban, mac_address, ethereum_address, passport, vin, in_upi, uk_vat, medical_record]
+
+positive_samples:
+  - { id: email-address-1, rule_id: email-address, text: "contact me at jane.doe@example.com" }
+  - { id: email-address-2, rule_id: email-address, text: "reach out to john.smith@company.org" }
+  - { id: phone-nanp-dashed-1, rule_id: phone-nanp-dashed, text: "call me at 415-555-0132" }
+  - { id: phone-nanp-dashed-2, rule_id: phone-nanp-dashed, text: "my number is 212-555-0199" }
+  - { id: us-ssn-dashed-1, rule_id: us-ssn-dashed, text: "my ssn is 123-45-6789" }
+  - { id: us-ssn-dashed-2, rule_id: us-ssn-dashed, text: "ssn: 876-54-3210" }
+  - { id: ipv4-address-1, rule_id: ipv4-address, text: "server at 203.0.113.5" }
+  - { id: ipv4-address-2, rule_id: ipv4-address, text: "connect to 198.51.100.23" }
+  - { id: iban-1, rule_id: iban, text: "wire to DE89370400440532013000" }
+  - { id: iban-2, rule_id: iban, text: "account IBAN: FR1420041010050500013M02606" }
+  - { id: mac-address-1, rule_id: mac-address, text: "device mac: 00:1A:2B:3C:4D:5E" }
+  - { id: mac-address-2, rule_id: mac-address, text: "interface eth0: AA:BB:CC:DD:EE:FF" }
+  - { id: ethereum-address-1, rule_id: ethereum-address, text: "send to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e" }
+  - { id: ethereum-address-2, rule_id: ethereum-address, text: "wallet: 0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B" }
+  - { id: passport-number-1, rule_id: passport-number, text: "passport number AB1234567" }
+  - { id: passport-number-2, rule_id: passport-number, text: "passport: X98765432" }
+  - { id: vin-1, rule_id: vin, text: "vin: 1HGCM82633A004352" }
+  - { id: vin-2, rule_id: vin, text: "vehicle vin JH4KA7561PC008269" }
+  - { id: in-upi-1, rule_id: in-upi, text: "pay to alice@paytm" }
+  - { id: in-upi-2, rule_id: in-upi, text: "send via bob@okhdfcbank" }
+  - { id: uk-vat-1, rule_id: uk-vat, text: "VAT number GB123456789" }
+  - { id: uk-vat-2, rule_id: uk-vat, text: "registered as GB987654321" }
+  - { id: medical-record-number-1, rule_id: medical-record-number, text: "MRN: AB123456" }
+  - { id: medical-record-number-2, rule_id: medical-record-number, text: "Patient ID:XYZ98765" }
+
+negative_samples:
+  - { id: n-email-address-1, rule_ids: [email-address], text: "the file extension .com is common" }
+  - { id: n-email-address-2, rule_ids: [email-address], text: "our domain is example dot org informally" }
+  - { id: n-phone-nanp-dashed-1, rule_ids: [phone-nanp-dashed], text: "order id: 415-555-0132" }
+  - { id: n-phone-nanp-dashed-2, rule_ids: [phone-nanp-dashed], text: "reference: 212-555-0199" }
+  - { id: n-us-ssn-dashed-1, rule_ids: [us-ssn-dashed], text: "expiration date: 123-45-6789" }
+  - { id: n-us-ssn-dashed-2, rule_ids: [us-ssn-dashed], text: "dob: 876-54-3210" }
+  - { id: n-us-ssn-dashed-3, rule_ids: [us-ssn-dashed], text: "itin: 987-65-4321" }
+  - { id: n-ipv4-address-1, rule_ids: [ipv4-address], text: "192.168.1.1 is a private address" }
+  - { id: n-ipv4-address-2, rule_ids: [ipv4-address], text: "10.0.0.5 is internal" }
+  - { id: n-iban-1, rule_ids: [iban], text: "the ID DE is a two letter country code" }
+  - { id: n-iban-2, rule_ids: [iban], text: "we discussed FR as a market abbreviation" }
+  - { id: n-mac-address-1, rule_ids: [mac-address], text: "the model number is ABC-123-XYZ" }
+  - { id: n-mac-address-2, rule_ids: [mac-address], text: "product code AABBCCDDEEFF is not this shape" }
+  - { id: n-ethereum-address-1, rule_ids: [ethereum-address], text: "the hex value 0x1A2B is short" }
+  - { id: n-ethereum-address-2, rule_ids: [ethereum-address], text: "0xFF is a common byte value" }
+  - { id: n-passport-number-1, rule_ids: [passport-number], text: "the product code is way too short" }
+  - { id: n-passport-number-2, rule_ids: [passport-number], text: "invoice number 12345 has no letters" }
+  - { id: n-vin-1, rule_ids: [vin], text: "short code ABC123 is not a vin" }
+  - { id: n-vin-2, rule_ids: [vin], text: "the tracking number is only six digits" }
+  - { id: n-in-upi-1, rule_ids: [in-upi], text: "email me at alice@example.com" }
+  - { id: n-in-upi-2, rule_ids: [in-upi], text: "visit our site at company@bigbank.com" }
+  - { id: n-uk-vat-1, rule_ids: [uk-vat], text: "we discussed VAT policy generally" }
+  - { id: n-uk-vat-2, rule_ids: [uk-vat], text: "GB is a common abbreviation for Great Britain" }
+  - { id: n-medical-record-number-1, rule_ids: [medical-record-number], text: "the record was updated yesterday" }
+  - { id: n-medical-record-number-2, rule_ids: [medical-record-number], text: "patient satisfaction scores improved" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me write a product requirements document?" }
+  - { id: gb-2, text: "What's a good structure for a weekly status report?" }
+  - { id: gb-3, text: "Summarize this article about renewable energy" }
+  - { id: gb-4, text: "Explain how TLS certificate validation works" }
+  - { id: gb-5, text: "Draft a polite email declining a meeting invite" }
+  - { id: gb-6, text: "What are some tips for improving public speaking skills?" }

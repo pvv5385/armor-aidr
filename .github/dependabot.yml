@@ -1,0 +1,78 @@
+version: 2
+
+# Grouped and rate-limited on purpose. An unbounded firehose of one-PR-per-bump
+# on a small maintainer team gets ignored, and a dependency bot that is being
+# ignored is worse than none — it makes a stale tree look tended. Weekly,
+# grouped by risk, with a low open-PR ceiling keeps the queue reviewable.
+#
+# Security advisories are separate from all of this: GitHub raises those
+# regardless of schedule or `open-pull-requests-limit`, and `cargo audit` in
+# .github/workflows/audit.yml is the independent check that does not depend on
+# Dependabot being enabled for the repository at all.
+
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      # DCO sign-off is enforced on every commit in a PR
+      # (.github/workflows/dco.yml). Dependabot's own commits are exempt —
+      # GitHub signs them as the bot, and there is no human author to attest.
+      # Set "Allow Dependabot to bypass" or waive the check for its PRs.
+      prefix: "deps"
+    groups:
+      # Patch/minor across the tree in one PR: individually these are noise,
+      # and reviewing them as a batch against a green CI run is the same
+      # amount of real information.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # serde_yaml is deliberately the `serde_yaml_ng` fork — see the comment
+      # on the workspace dependency in Cargo.toml. Do not let a bump quietly
+      # walk it back to the archived upstream (RUSTSEC-2024-0320).
+      - dependency-name: serde_yaml
+
+  - package-ecosystem: pip
+    directory: "/inference"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(inference)"
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      # Every action in .github/workflows/ is pinned to a commit SHA with the
+      # human-readable version in a trailing comment. Dependabot understands
+      # that convention and rewrites both together — which is the only
+      # practical way to keep SHA pinning from rotting into permanently stale
+      # actions nobody dares touch.
+      actions:
+        patterns: ["*"]
+
+  # Base images for both deployables. Kept ungrouped and separate: a base
+  # image bump changes the runtime under a security control, and it deserves
+  # its own PR and its own docker-build CI run rather than riding along in a
+  # batch.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(docker)"

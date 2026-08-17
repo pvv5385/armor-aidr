@@ -1,0 +1,27 @@
+# Sensitive-business-data dictionary — M&A, pricing, roadmap, customer-list,
+# and financials leakage. Phrase-level patterns (an adjective qualifying the
+# noun, e.g. "confidential pricing sheet") rather than bare nouns like
+# "pricing" or "roadmap" alone, which are everyday business vocabulary and
+# would make this category unusably chatty as a bare keyword list.
+#
+# Own pattern set, not ported from any third party.
+- id: mna-leak
+  description: Confidential/unannounced M&A activity
+  category: mna
+  regex: '(?i)\b(?:confidential|unannounced|undisclosed)\s+(?:merger|acquisition|M&A)\b'
+- id: pricing-leak
+  description: Internal/confidential pricing sheet or model
+  category: pricing
+  regex: '(?i)\b(?:internal|confidential)\s+pricing\s+(?:sheet|list|model)\b'
+- id: roadmap-leak
+  description: Unreleased/internal product roadmap
+  category: roadmap
+  regex: '(?i)\b(?:unreleased|internal|confidential)\s+(?:product\s+)?roadmap\b'
+- id: customer-list-leak
+  description: Customer list export or dump
+  category: customer_list
+  regex: '(?i)\bcustomer\s+list\s+(?:export|dump)\b'
+- id: financials-leak
+  description: Confidential/internal financials or revenue figures
+  category: financials
+  regex: '(?i)\b(?:confidential|internal)\s+(?:financials|financial\s+statements|revenue\s+figures)\b'

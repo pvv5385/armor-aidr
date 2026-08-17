@@ -1,0 +1,38 @@
+# Baseline set of widely-recognized brand domains used as the comparison
+# target for homoglyph/typosquat detection — a link to a *visually similar*
+# domain (not this exact one) is the phishing tell. Deployments can extend
+# this via the malicious_url check's `popular_domains` option; this list is
+# a starting default, not a claim of completeness. Alphabetized.
+- adobe.com
+- amazon.com
+- anthropic.com
+- apple.com
+- bankofamerica.com
+- box.com
+- chase.com
+- citibank.com
+- coinbase.com
+- docusign.com
+- dropbox.com
+- facebook.com
+- github.com
+- google.com
+- instagram.com
+- linkedin.com
+- microsoft.com
+- netflix.com
+- okta.com
+- openai.com
+- oracle.com
+- paypal.com
+- salesforce.com
+- slack.com
+- stripe.com
+- twilio.com
+- twitter.com
+- usbank.com
+- wellsfargo.com
+- workday.com
+- yahoo.com
+- youtube.com
+- zoom.us

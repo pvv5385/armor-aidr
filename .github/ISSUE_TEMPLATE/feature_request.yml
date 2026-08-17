@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose new coverage or a new capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >
+        Describe the situation, not the solution. What gets past Armor today,
+        or what can you not express in a policy?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      description: If you have a specific design in mind, describe it here.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - A new detector category
+        - Coverage inside an existing detector
+        - Policy schema or configuration
+        - HTTP API
+        - A gateway or platform integration
+        - Observability (metrics, tracing, audit)
+        - Packaging or deployment
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: >
+        How are you handling this today? `custom_regex` and
+        `keyword_blocklist` cover a surprising amount — if you tried them and
+        they were insufficient, that is useful signal.

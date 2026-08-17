@@ -1,0 +1,23 @@
+# Known URL-shortener domains. Not malicious by themselves, but they hide
+# the true destination from both the model and a human reviewer, so a
+# shortened link is treated as a signal worth flagging rather than a
+# guaranteed positive.
+- bit.ly
+- tinyurl.com
+- goo.gl
+- t.co
+- ow.ly
+- is.gd
+- buff.ly
+- rebrand.ly
+- cutt.ly
+- shorturl.at
+- tiny.cc
+- rb.gy
+- s.id
+- v.gd
+- lnkd.in
+- t.ly
+- bl.ink
+- short.io
+- clck.ru

@@ -1,0 +1,70 @@
+# Unbounded-consumption benchmark corpus v1. Unlike every other benchmark
+# corpus, this detector is stateful (per-session in-process counters keyed
+# by `session_id`), so each sample carries the numeric options needed to
+# trigger or stay under budget on a *single* call rather than relying on
+# call-order across samples. Every sample uses its own unique `session_id`
+# so samples don't interfere with each other regardless of test execution
+# order. See crates/core/tests/unbounded_consumption_benchmark.rs and
+# crates/core/src/detectors/unbounded_consumption.rs.
+
+dataset_name: unbounded-consumption-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - id: pos-loop-depth
+    text: "step 9 of the plan"
+    session_id: bench-uc-loop-1
+    loop_depth: 11
+    max_loop_depth: 10
+    expect_rule: unbounded-consumption-loop-depth-exceeded
+  - id: pos-token-budget
+    text: "processing a large document on behalf of the user"
+    session_id: bench-uc-token-1
+    estimated_tokens: 5000
+    max_tokens_per_session: 1000
+    expect_rule: unbounded-consumption-token-budget-exceeded
+  - id: pos-request-budget
+    text: "another request in the same session"
+    session_id: bench-uc-request-1
+    max_requests_per_session: 0
+    expect_rule: unbounded-consumption-request-budget-exceeded
+
+negative_samples:
+  - id: neg-unlimited-defaults
+    text: "hello, how are you today?"
+    session_id: bench-uc-neg-unlimited
+    rule_ids: [unbounded-consumption-loop-depth-exceeded, unbounded-consumption-token-budget-exceeded, unbounded-consumption-request-budget-exceeded]
+  - id: neg-within-all-budgets
+    text: "a small, well-scoped request"
+    session_id: bench-uc-neg-within-budget
+    estimated_tokens: 10
+    max_tokens_per_session: 1000
+    max_requests_per_session: 5
+    loop_depth: 1
+    max_loop_depth: 10
+    rule_ids: [unbounded-consumption-loop-depth-exceeded, unbounded-consumption-token-budget-exceeded, unbounded-consumption-request-budget-exceeded]
+  - id: neg-empty-session-id-skips-tracking
+    text: "no session id set for this call"
+    session_id: ""
+    estimated_tokens: 999999
+    max_tokens_per_session: 1
+    max_requests_per_session: 0
+    rule_ids: [unbounded-consumption-token-budget-exceeded, unbounded-consumption-request-budget-exceeded]
+
+general_benign:
+  - id: gb-1
+    text: "Can you help me plan a budget for a small team offsite?"
+    session_id: bench-uc-gb-1
+  - id: gb-2
+    text: "What's a good rule of thumb for tipping at a restaurant?"
+    session_id: bench-uc-gb-2
+  - id: gb-3
+    text: "Explain compound interest in simple terms"
+    session_id: bench-uc-gb-3
+  - id: gb-4
+    text: "How many days are there in a typical leap year?"
+    session_id: bench-uc-gb-4
+  - id: gb-5
+    text: "Summarize this quarterly report in three bullet points"
+    session_id: bench-uc-gb-5

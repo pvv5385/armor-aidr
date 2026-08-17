@@ -1,0 +1,234 @@
+# Hallucination benchmark corpus v1 (base tier — token-overlap grounding
+# against caller-supplied `sources`, no rules.yaml bank). Same shape as
+# gibberish_v1.yaml: one rule, positive/negative/general-benign only. See
+# crates/core/tests/hallucination_benchmark.rs.
+
+dataset_name: hallucination-v1
+version: 1
+created: 2026-07-30
+
+fixtures:
+
+  rust: &rust >
+    Rust is a systems programming language focused on memory safety,
+    performance, and concurrency through its ownership model.
+
+  paris: &paris >
+    Paris is the capital of France and is home to landmarks including
+    the Eiffel Tower, the Louvre Museum, and Notre-Dame Cathedral.
+
+  solar: &solar >
+    The Solar System consists of the Sun and the objects that orbit it,
+    including eight planets. Earth is the third planet from the Sun.
+
+  bananas: &bananas >
+    Bananas grow in tropical and subtropical climates with warm
+    temperatures and adequate rainfall.
+
+positive_samples:
+
+  # Completely ungrounded
+  - id: ungrounded-rust
+    expect_rule: hallucination-low-grounding-overlap
+    text: >
+      Rust was originally developed by NASA for controlling satellites.
+    sources:
+      - *rust
+
+  # Fabricated facts — lexically distant enough from the source that the
+  # token-overlap heuristic catches them too, even though the underlying
+  # problem (an invented statistic/quote) is a different failure mode than
+  # plain off-topic drift.
+  - id: fabricated-statistic
+    expect_rule: hallucination-low-grounding-overlap
+    text: >
+      The source states that 93% of developers prefer Rust.
+    sources:
+      - *rust
+
+  - id: fabricated-quote
+    expect_rule: hallucination-low-grounding-overlap
+    text: >
+      The article says "Rust completely eliminates all software bugs."
+    sources:
+      - *rust
+
+negative_samples:
+
+  # Exact grounding
+  - id: rust-exact
+    text: >
+      Rust is a systems programming language focused on memory safety and
+      performance.
+    sources:
+      - *rust
+
+  # Paraphrase
+  - id: rust-paraphrase
+    text: >
+      Rust emphasizes safe memory management while delivering high
+      performance.
+    sources:
+      - *rust
+
+  - id: paris-paraphrase
+    text: >
+      Paris is France's capital and is known for landmarks like the
+      Eiffel Tower.
+    sources:
+      - *paris
+
+  - id: solar-summary
+    text: >
+      Earth is the third planet orbiting the Sun.
+    sources:
+      - *solar
+
+  - id: banana-summary
+    text: >
+      Bananas thrive in warm tropical regions.
+    sources:
+      - *bananas
+
+  # Supported inference
+  - id: inference
+    text: >
+      Rust is designed with safety as one of its primary goals.
+    sources:
+      - *rust
+
+  # Multiple sources
+  - id: multisource
+    text: >
+      Earth is the third planet from the Sun and bananas grow in tropical
+      climates.
+    sources:
+      - *solar
+      - *bananas
+
+  # No grounding available
+  - id: no-sources
+    text: >
+      Rust is a programming language.
+
+  # Short response
+  - id: short
+    text: "Yes."
+    sources:
+      - *rust
+
+boundary_cases:
+
+  # Wrong-entity-swap / cross-source-contradiction cases: lexically close
+  # enough to their source that token-overlap grounding (the only tier
+  # implemented so far) doesn't catch them — this is the base tier's
+  # documented weakness (see hallucination.rs's module doc), not a bug.
+  # They'll graduate to positive_samples once the NLI/LLM-judge escalation
+  # tiers () land and give this detector a way to catch them.
+  - id: ungrounded-paris
+    text: >
+      Paris is the capital of Germany.
+    sources:
+      - *paris
+
+  - id: ungrounded-solar
+    text: >
+      Earth is the fifth planet from the Sun.
+    sources:
+      - *solar
+
+  - id: ungrounded-bananas
+    text: >
+      Bananas grow naturally in arctic climates.
+    sources:
+      - *bananas
+
+  - id: invented-landmark
+    text: >
+      Paris is famous for the Crystal Palace Tower.
+    sources:
+      - *paris
+
+  - id: contradiction
+    text: >
+      Earth is the seventh planet from the Sun.
+    sources:
+      - *solar
+      - *bananas
+
+  # Lexical overlap but wrong fact
+  - id: overlap-wrong
+    text: >
+      Rust is a systems programming language developed by Google.
+    sources:
+      - *rust
+
+  # Correct fact with different wording
+  - id: overlap-correct
+    text: >
+      Rust uses an ownership model to improve memory safety.
+    sources:
+      - *rust
+
+  # Added unsupported sentence
+  - id: partial-hallucination
+    text: >
+      Rust is a systems programming language focused on memory safety.
+      It was created in 1984.
+    sources:
+      - *rust
+
+  # Omits details but remains faithful
+  - id: faithful-summary
+    text: >
+      Paris is the capital of France.
+    sources:
+      - *paris
+
+  # Contradicts one source while agreeing with another
+  - id: multisource-conflict
+    text: >
+      Earth is the fifth planet from the Sun, and bananas grow in tropical
+      climates.
+    sources:
+      - *solar
+      - *bananas
+
+  # Correct quotation
+  - id: supported-quote
+    text: >
+      The source states that Rust focuses on memory safety and performance.
+    sources:
+      - *rust
+
+general_benign:
+
+  - id: gb-1
+    text: "Summarize this document."
+
+  - id: gb-2
+    text: "Translate this paragraph into French."
+
+  - id: gb-3
+    text: "Write a thank-you email."
+
+  - id: gb-4
+    text: "Explain recursion."
+
+  - id: gb-5
+    text: "Help debug this Python code."
+
+  - id: gb-6
+    text: "Convert this CSV to JSON."
+
+  - id: gb-7
+    text: "Explain how TLS works."
+
+  - id: gb-8
+    text: "Generate meeting notes."
+
+  - id: gb-9
+    text: "Review this SQL query."
+
+  - id: gb-10
+    text: "What's the weather forecast for tomorrow?"

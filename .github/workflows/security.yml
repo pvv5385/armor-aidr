@@ -1,0 +1,36 @@
+name: Security (SAST)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Clippy's own lint gate already runs with -D warnings in ci.yml's `rust`
+  # job on every push/PR; a second identical clippy job here was pure
+  # duplicate compute, so it's not repeated in this workflow.
+  semgrep:
+    name: semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # `semgrep scan`, not `semgrep ci`: the latter is the Semgrep-Cloud entry
+      # point and needs a SEMGREP_APP_TOKEN to do anything, so with no token
+      # provisioned it was a job that could only ever report green. `scan`
+      # runs the same rules with no account, and `--error` makes a finding
+      # exit non-zero so this actually gates a PR.
+      #
+      # Findings in `config/benchmarks/secrets_v1.yaml` are suppressed by
+      # `.semgrepignore` at the repo root — every credential in that file is a
+      # synthetic fixture for this project's own secrets detectors.
+      - run: semgrep scan --config auto --error

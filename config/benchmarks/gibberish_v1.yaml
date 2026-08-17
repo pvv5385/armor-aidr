@@ -1,0 +1,188 @@
+# Gibberish benchmark corpus v1. Unlike the pattern-bank detectors, this
+# category is formula-based (Shannon entropy, vowel ratio, invisible-char
+# ratio — see crates/core/src/detectors/gibberish.rs), so there's no fixed
+# rule bank to enumerate per-rule coverage against. `expect_rule` on each
+# positive sample names which of the three checks should fire. See
+# crates/core/tests/gibberish_benchmark.rs.
+
+dataset_name: gibberish-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+
+  # High entropy
+  - id: entropy-1
+    expect_rule: gibberish-high-entropy
+    text: "xQ7mZ2vK9pL4wR8nT1yB6jH3dF5sC0gA"
+
+  - id: entropy-2
+    expect_rule: gibberish-high-entropy
+    text: "j8Fq2XpZ9tRlG3nYbW7cVhK1sD5mQoU4"
+
+  - id: entropy-3
+    expect_rule: gibberish-high-entropy
+    text: "V8sK2mLpQ1xY7rNcH5tBw9DfG4zJu6Ae"
+
+  # Low vowel ratio
+  - id: vowel-1
+    expect_rule: gibberish-low-vowel-ratio
+    text: "please inspect xkqzjwvbnmfghjklp"
+
+  - id: vowel-2
+    expect_rule: gibberish-low-vowel-ratio
+    text: "review file zxcvbnmqwrtlkjhgf"
+
+  # Invisible Unicode
+  - id: invisible-1
+    expect_rule: gibberish-invisible-char-ratio
+    text: "hello​​​​​world"
+
+  - id: invisible-2
+    expect_rule: gibberish-invisible-char-ratio
+    text: "ab​​​cd​​​ef"
+
+negative_samples:
+
+  # Natural language
+  - id: natural-1
+    text: "The quick brown fox jumps over the lazy dog."
+
+  - id: natural-2
+    text: "Please schedule a meeting for tomorrow morning."
+
+  # Source code
+  - id: code-python
+    text: |
+      def add(a, b):
+          return a + b
+
+  - id: code-javascript
+    text: |
+      const sum = (a, b) => a + b;
+
+  # JSON
+  - id: json
+    text: '{"name":"Alice","age":30,"active":true}'
+
+  # YAML
+  - id: yaml
+    text: |
+      name: Alice
+      age: 30
+
+  # XML
+  - id: xml
+    text: "<user><name>Alice</name></user>"
+
+  # SQL
+  - id: sql
+    text: "SELECT * FROM users WHERE active = true;"
+
+  # Regular expression
+  - id: regex
+    text: "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+
+  # Stack trace
+  - id: stacktrace
+    text: |
+      Traceback (most recent call last):
+        File "main.py", line 4
+
+  # UUID
+  - id: uuid
+    text: "550e8400-e29b-41d4-a716-446655440000"
+
+  # SHA256 hash
+  - id: sha256
+    text: "d2d2d2f61d7ef8e6f4c80b66d3b2a6f7083e4dfbcfcbccdbcc7a9d7835d5c9af"
+
+  # Base64
+  - id: base64
+    text: "SGVsbG8gd29ybGQh"
+
+  # JWT
+  - id: jwt
+    text: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+
+  # URL
+  - id: url
+    text: "https://example.com/docs/api"
+
+  # Email
+  - id: email
+    text: "alice@example.com"
+
+  # Windows path
+  - id: windows-path
+    text: "C:\\Users\\Alice\\Documents\\report.docx"
+
+  # Unix path
+  - id: unix-path
+    text: "/home/alice/projects/main.py"
+
+  # Log line
+  - id: log
+    text: "2026-07-30T21:44:11Z INFO Server started successfully"
+
+  # Markdown
+  - id: markdown
+    text: "# Installation\nRun `pip install app`"
+
+boundary_cases:
+
+  - id: short-random
+    text: "x7Q"
+
+  - id: medium-random
+    text: "a9KlmP"
+
+  - id: almost-natural
+    text: "Please review xkqzjwvbnm before submitting."
+
+  - id: mixed-text-random
+    text: "The build failed with code A92XJKL771."
+
+  - id: repeated-word
+    text: "hello hello hello hello hello"
+
+  - id: emoji
+    text: "😀😀😀😀😀😀"
+
+  - id: dna
+    text: "ACGTACGTACGTACGTACGT"
+
+  - id: hexadecimal
+    text: "0x7ffeefbff5c8"
+
+general_benign:
+
+  - id: gb-1
+    text: "Summarize this article."
+
+  - id: gb-2
+    text: "Translate this paragraph into French."
+
+  - id: gb-3
+    text: "Write a thank-you email."
+
+  - id: gb-4
+    text: "Explain recursion using a simple example."
+
+  - id: gb-5
+    text: "Help debug my Python program."
+
+  - id: gb-6
+    text: "Convert this CSV into JSON."
+
+  - id: gb-7
+    text: "How does TLS work?"
+
+  - id: gb-8
+    text: "Generate a meeting agenda."
+
+  - id: gb-9
+    text: "Review this SQL query for performance."
+
+  - id: gb-10
+    text: "Explain the difference between TCP and UDP."

@@ -1,0 +1,6 @@
+# Synthetic secrets used as positive/negative fixtures for this repo's own
+# secrets-detection rules (crates/core/rules/secrets/rules.yaml). Semgrep's
+# generic.secrets.* rules flag these as "leaked" credentials, but every
+# value here is a placeholder (AAAA.../BBBB...) defined for detector
+# testing, never a real credential.
+config/benchmarks/secrets_v1.yaml

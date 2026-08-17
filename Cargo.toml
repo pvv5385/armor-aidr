@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/api",
+    "crates/storage",
+    "crates/inference-client",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/pvv5385/armor-aidr"
+
+[workspace.dependencies]
+armor-core = { path = "crates/core" }
+armor-storage = { path = "crates/storage" }
+armor-inference-client = { path = "crates/inference-client" }
+serde = { version = "1", features = ["derive"] }
+# RUSTSEC-2024-0320: upstream serde_yaml is archived/unmaintained. This is
+# the maintained drop-in fork — same API, so no `use serde_yaml::...` call
+# site needs to change, just the package this workspace dep resolves to.
+serde_yaml = { package = "serde_yaml_ng", version = "0.10" }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Redis-backed distributed rate-limit bucket (armor-api's
+# middleware::redis_rate_limit) — tokio-comp for the async runtime already in
+# use everywhere else, connection-manager for an auto-reconnecting handle
+# that's cheap to clone into AppState.
+redis = { version = "0.27", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }

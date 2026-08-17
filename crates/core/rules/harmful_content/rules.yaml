@@ -1,0 +1,99 @@
+# Curated pattern-based harmful-content ruleset — the content-classification
+# *topic* half of jailbreak-adjacent detection, kept separate from jailbreak
+# mechanism patterns. Distinct in scope from jailbreak/ (persona/framing/
+# obfuscation *mechanism*, no topic awareness) and prompt_injection/
+# (instruction-override structure): this ruleset matches on the
+# harmful-content *topic* itself — weapons, drugs, violence, and child
+# sexual abuse material — regardless of whether it's wrapped in any
+# jailbreak framing.
+#
+# Written to this ruleset's own schema and regex style (single `(?i)` per
+# rule, no lookarounds/backreferences so every pattern carries over cleanly
+# to Rust's `regex` crate).
+#
+# Four sub-categories, each requiring an instructional/acquisitional verb
+# phrase plus a harmful-topic noun phrase (not a bare keyword) to keep the
+# false-positive profile manageable against news, fiction, and
+# harm-reduction/policy discussion that merely *mentions* these topics:
+#   - weapons_howto: explosives/firearms/chemical-biological weapon
+#     construction or illegal acquisition instructions.
+#   - drugs_howto: illicit drug synthesis/manufacture instructions and
+#     precursor acquisition.
+#   - violence_howto: instructions for killing, poisoning, torturing, or
+#     carrying out a mass-casualty attack undetected.
+#   - csam: solicitation of sexual content involving minors, and grooming
+#     instructions. Shipped as its own sub-category (not folded into
+#     violence_howto) since its false-positive source (news/prevention/
+#     trust-and-safety discussion that names the topic without soliciting
+#     it) is different in kind from the other three.
+#
+# Shipped `mode: warn` in config/policies.yaml pending the eval pass in
+# config/benchmarks/harmful_content_v1.yaml +
+# crates/core/tests/harmful_content_benchmark.rs — see that corpus's header
+# for results and which sub-categories are FPR-clean enough to be `block`
+# candidates once the engine gains per-rule (not just per-category) mode
+# granularity.
+- id: explosive-device-instructions
+  description: Requests instructions to build/assemble an explosive device
+  category: weapons_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:make|build|assemble|construct)\s+(?:a\s+|an\s+)?(?:pipe\s*bomb|bomb|explosive\s+device|ied|improvised\s+explosive)\b'
+- id: firearm-manufacture-instructions
+  description: Requests instructions to manufacture an untraceable/unregistered firearm
+  category: weapons_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:make|build|manufacture|3d\s*print)\s+(?:an?\s+)?(?:untraceable\s+|unregistered\s+|homemade\s+)?(?:ghost\s*gun|firearm|gun)\s+(?:at\s+home|myself|without\s+a\s+(?:license|serial\s+number))\b'
+- id: chemical-weapon-instructions
+  description: Requests instructions to synthesize or weaponize a chemical/biological/nerve agent
+  category: weapons_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:make|synthesize|produce|weaponize)\s+(?:a\s+|an\s+)?(?:nerve\s+agent|nerve\s+gas|sarin|chemical\s+weapon|biological\s+weapon|bioweapon)\b'
+- id: illegal-weapon-acquisition-request
+  description: Asks how to obtain a firearm or explosives illegally / without a background check
+  category: weapons_howto
+  regex: '(?i)\bhow\s+(?:can|do)\s+i\s+(?:get|buy|acquire|obtain)\s+(?:an?\s+)?(?:gun|firearm|explosives?)\s+(?:illegally|without\s+a\s+background\s+check|off\s+the\s+books|with\s+no\s+paper\s+trail)\b'
+- id: drug-synthesis-instructions
+  description: Requests step-by-step instructions to synthesize/cook an illicit drug
+  category: drugs_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:synthesize|cook|manufacture)\s+(?:meth(?:amphetamine)?|fentanyl|heroin|lsd|mdma|crystal\s+meth)\s+(?:at\s+home|myself|step\s+by\s+step)\b'
+- id: drug-synthesis-route-request
+  description: Asks directly for a synthesis route/procedure/recipe for an illicit drug
+  category: drugs_howto
+  regex: '(?i)\b(?:synthesis|synthesize)\s+(?:route|procedure|recipe)\s+for\s+(?:meth(?:amphetamine)?|fentanyl|heroin|mdma|lsd)\b'
+- id: precursor-acquisition-request
+  description: Asks how to obtain drug-precursor chemicals without a prescription or illegally
+  category: drugs_howto
+  regex: '(?i)\bhow\s+(?:can|do)\s+i\s+(?:get|buy|acquire|obtain)\s+(?:pseudoephedrine|precursor\s+chemicals?)\s+(?:without\s+a\s+prescription|illegally|off\s+the\s+books)\b'
+- id: drug-lab-setup-request
+  description: Requests instructions to set up a clandestine drug-manufacturing lab
+  category: drugs_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+set\s*up\s+a\s+(?:meth|fentanyl|drug)\s+lab\b'
+- id: undetected-poisoning-instructions
+  description: Requests instructions to poison a person without detection
+  category: violence_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+poison\s+(?:someone|a\s+person|my\s+\w+)\s+(?:without\s+(?:them\s+)?(?:knowing|getting\s+caught|being\s+detected)|and\s+not\s+get\s+caught|undetected)\b'
+- id: untraceable-killing-instructions
+  description: Requests instructions to kill/murder a person without getting caught
+  category: violence_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:kill|murder)\s+(?:someone|a\s+person)\s+(?:and\s+not\s+get\s+caught|without\s+getting\s+caught|untraceably|and\s+get\s+away\s+with\s+it)\b'
+- id: mass-casualty-attack-planning
+  description: Requests a plan/execution instructions for a mass-casualty attack
+  category: violence_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:carry\s+out|plan|execute)\s+a\s+(?:mass\s+shooting|terrorist\s+attack|bombing)\b'
+- id: torture-instructions
+  description: Requests instructions on how to torture a person or animal
+  category: violence_howto
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+torture\s+(?:someone|a\s+person|an?\s+animal)\s+(?:without\s+(?:them\s+)?(?:dying|killing\s+them)|so\s+(?:it|they)\s+(?:hurts?|suffers?)\s+the\s+most)\b'
+- id: csam-explicit-solicitation
+  description: Requests sexual/explicit/nude content involving a minor
+  category: csam
+  regex: '(?i)\b(?:sexual|explicit|nude|naked)\s+(?:content|images?|photos?|pictures?|stories?|story)\s+(?:of|involving|featuring)\s+(?:a\s+)?(?:child|children|minors?|kids?|preteens?|underage\s+\w+)\b'
+- id: csam-material-mention
+  description: Names child sexual abuse material or child pornography directly
+  category: csam
+  regex: '(?i)\bchild\s+(?:sexual\s+abuse\s+material|porn(?:ography)?)\b'
+- id: sexualize-minor-request
+  description: Explicitly requests sexualized content/roleplay involving a minor
+  category: csam
+  regex: '(?i)\b(?:sexualize|sexualizing|sexual\s+roleplay\s+(?:with|as|involving))\s+(?:a\s+)?(?:child|minor|kid)\b'
+- id: minor-grooming-instructions
+  description: Requests instructions on how to groom a minor for sexual exploitation
+  category: csam
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+groom\s+(?:a\s+)?(?:child|minor|kid)\s+(?:for|into)\b'

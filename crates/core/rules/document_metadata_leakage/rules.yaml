@@ -1,0 +1,27 @@
+# Document-metadata-leakage pattern bank — tracked-changes/comment markup,
+# revision-history markers, and internal file paths that shouldn't have
+# survived into text handed to an external caller. Hidden zero-width/bidi
+# text is handled separately in code
+# (`crates/core/src/detectors/document_metadata_leakage.rs`), not via regex.
+#
+# Own pattern set, not ported from any third party.
+- id: tracked-changes-markup
+  description: Word/OOXML tracked-change markup left in exported text
+  category: tracked_changes
+  regex: '<w:(?:ins|del)\b'
+- id: revision-history-marker
+  description: Explicit revision-history / track-changes label
+  category: revision_history
+  regex: '(?i)\b(?:track(?:ed)?\s+changes|revision\s+history)\s*:'
+- id: internal-windows-path
+  description: Internal Windows user-profile file path
+  category: file_path
+  regex: '\bC:\\Users\\[^\s"''<>]+'
+- id: internal-unc-path
+  description: Internal UNC network share path
+  category: file_path
+  regex: '\\\\[A-Za-z0-9_.-]+\\[A-Za-z0-9_.$-]+'
+- id: internal-unix-home-path
+  description: Internal Unix/macOS home-directory file path
+  category: file_path
+  regex: '\B/(?:home|Users)/[A-Za-z0-9_.-]+/[^\s"''<>]+'

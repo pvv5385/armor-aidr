@@ -1,0 +1,20 @@
+# Tool-allowlist benchmark corpus v1. Config-driven allow/deny list, not a
+# rule bank — expect_deny-shaped. Evaluated with
+# `allow: [search, read_file], deny: [delete_database]`. See
+# crates/core/tests/tool_allowlist_benchmark.rs.
+
+dataset_name: tool-allowlist-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-denied-tool, text: "{\"tool\":\"delete_database\"}" }
+  - { id: pos-not-allowlisted, text: "{\"tool\":\"send_email\"}" }
+
+negative_samples:
+  - { id: neg-allowlisted-search, text: "{\"tool\":\"search\"}" }
+  - { id: neg-allowlisted-read, text: "{\"tool\":\"read_file\"}" }
+
+general_benign:
+  - { id: gb-1, text: "{\"tool\":\"search\",\"args\":{\"q\":\"weather\"}}" }
+  - { id: gb-2, text: "{\"tool\":\"read_file\",\"args\":{\"path\":\"notes.txt\"}}" }

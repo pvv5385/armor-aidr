@@ -1,0 +1,68 @@
+[package]
+name = "armor-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Armor's axum service: HTTP API, auth/audit/rate-limit middleware, engine wiring."
+
+[[bin]]
+name = "armor-api"
+path = "src/main.rs"
+
+[dependencies]
+armor-core.workspace = true
+armor-storage.workspace = true
+armor-inference-client.workspace = true
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout", "compression-gzip"] }
+# join_all for the concurrent escalation pass (ml.rs) — already in the tree
+# as a transitive dep, promoted to direct since we now use it directly.
+futures-util = "0.3"
+serde.workspace = true
+serde_yaml.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+# Date-range parsing for `GET /api/v1/logs`'s `from`/`to` query params
+# (control_plane.rs) — same version/features armor-storage already pins.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+opentelemetry = "0.32"
+opentelemetry_sdk = "0.32"
+# grpc-tonic added on top of the defaults (http-proto, trace/metrics/logs) so
+# both common OTLP transports are available; protocol is picked at runtime
+# via OTEL_EXPORTER_OTLP_PROTOCOL (falls back to http/protobuf, this crate's
+# compiled-feature default, when unset — see otel.rs). http/json is a
+# deliberate scope cut: rare in practice, and every collector that speaks
+# OTLP at all speaks grpc or http/protobuf.
+opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic"] }
+tracing-opentelemetry = "0.33"
+opentelemetry-appender-tracing = "0.32"
+# Client for telemetry.rs (batched control-plane events) and heartbeat.rs
+# (daily anonymous ping). Already a transitive dep of opentelemetry-http;
+# promoted to direct since we now make real calls with it, not just link
+# it in unused via the (inactive) OTLP http transport. rustls avoids a
+# system OpenSSL dependency in the Docker image (native-tls's backend).
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "rustls-native-certs"] }
+# install_id / event_id generation (telemetry.rs, heartbeat.rs, install_state.rs).
+uuid = { version = "1", features = ["v4"] }
+# 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
+lru = "0.16"
+# CIDR parsing for ARMOR_TRUSTED_PROXIES (middleware/rate_limit.rs's
+# trusted-hop X-Forwarded-For resolution). Already a transitive dep via
+# reqwest's resolver stack, so promoting it to direct adds no new crate.
+ipnet = "2"
+# Redis-backed distributed rate-limit backend (middleware/redis_rate_limit.rs).
+redis.workspace = true
+sha2 = "0.10"
+subtle = "2.5"
+arc-swap = "1"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+tempfile = "3"

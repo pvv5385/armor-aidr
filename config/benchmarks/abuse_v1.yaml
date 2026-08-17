@@ -1,0 +1,81 @@
+# Abuse/rate-limit benchmark corpus v1.
+# This benchmark is stateful and uses time windows: per-call counters are
+# tracked in-process and keyed by `session_id`. Window rollover is driven by
+# an injected `now` value (tests set `now` to simulate time). Each sample
+# uses a single unique `session_id` (same convention as unbounded_consumption_v1.yaml)
+# so tests do not rely on the ordering of calls across samples. For
+# implementation and test details see crates/core/tests/abuse_benchmark.rs and
+# crates/core/src/detectors/abuse.rs.
+
+dataset_name: abuse-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - id: pos-burst-over-limit
+    text: "third request in the same window"
+    session_id: bench-abuse-burst-1
+    max_requests_per_window: 2
+    window_seconds: 60
+    now: 0
+    warmup_calls: 2
+    expect_rule: abuse-rate-limit-exceeded
+  - id: pos-single-call-over-zero-limit
+    text: "one request, zero allowed"
+    session_id: bench-abuse-zero-limit
+    max_requests_per_window: 0
+    window_seconds: 60
+    now: 0
+    expect_rule: abuse-rate-limit-exceeded
+
+negative_samples:
+  - id: neg-unlimited-defaults
+    text: "hello, how are you today?"
+    session_id: bench-abuse-neg-unlimited
+    now: 0
+    rule_ids: [abuse-rate-limit-exceeded]
+  - id: neg-within-window-budget
+    text: "second request, still under the limit"
+    session_id: bench-abuse-neg-within-budget
+    max_requests_per_window: 5
+    window_seconds: 60
+    now: 0
+    warmup_calls: 1
+    rule_ids: [abuse-rate-limit-exceeded]
+  - id: neg-window-rolled-over
+    text: "request after the window reset"
+    session_id: bench-abuse-neg-rollover
+    max_requests_per_window: 1
+    window_seconds: 10
+    now: 100
+    warmup_calls: 1
+    warmup_now: 0
+    rule_ids: [abuse-rate-limit-exceeded]
+  - id: neg-empty-session-id-skips-tracking
+    text: "no session id set for this call"
+    session_id: ""
+    max_requests_per_window: 0
+    now: 0
+    rule_ids: [abuse-rate-limit-exceeded]
+
+general_benign:
+  - id: gb-1
+    text: "Can you help me plan a budget for a small team offsite?"
+    session_id: bench-abuse-gb-1
+    now: 0
+  - id: gb-2
+    text: "What's a good rule of thumb for tipping at a restaurant?"
+    session_id: bench-abuse-gb-2
+    now: 0
+  - id: gb-3
+    text: "Explain compound interest in simple terms"
+    session_id: bench-abuse-gb-3
+    now: 0
+  - id: gb-4
+    text: "How many days are there in a typical leap year?"
+    session_id: bench-abuse-gb-4
+    now: 0
+  - id: gb-5
+    text: "Summarize this quarterly report in three bullet points"
+    session_id: bench-abuse-gb-5
+    now: 0

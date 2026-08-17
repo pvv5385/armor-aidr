@@ -1,0 +1,44 @@
+name: DCO
+
+# Every commit in a pull request must carry a `Signed-off-by` trailer — see
+# DCO.md. No third-party action or app: this is a plain `git log` check
+# against the PR's own commit range, so there's no external dependency to
+# trust or keep pinned.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dco-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check for Signed-off-by trailer on every commit
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          missing=0
+          while read -r sha; do
+            if ! git log -1 --format=%B "$sha" | grep -qE '^Signed-off-by: .+ <.+>$'; then
+              echo "::error::commit $sha is missing a Signed-off-by trailer (see DCO.md)"
+              missing=1
+            fi
+          done < <(git rev-list "$base..$head")
+          if [ "$missing" -ne 0 ]; then
+            echo "One or more commits are missing a DCO sign-off. Fix with:"
+            echo "  git rebase --signoff $base"
+            echo "then force-push the branch. See DCO.md for details."
+            exit 1
+          fi

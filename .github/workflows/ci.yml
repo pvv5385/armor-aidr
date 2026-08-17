@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: cargo build / test / clippy / fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The storage layer (`crates/storage`'s sessions/vault) is tested
+    # against a real Postgres, not a mock — the behaviors under test are
+    # database behaviors (atomic upserts, unique-index races, ON DELETE
+    # CASCADE). Those tests skip when ARMOR_TEST_DATABASE_URL is unset, so
+    # without this service they would pass by doing nothing.
+    #
+    # Redis is here for the same reason: `crates/api`'s
+    # redis_rate_limit_integration is what proves the token-bucket Lua script
+    # enforces capacity/refill for real, and rate-limit bypass is explicitly
+    # in scope in SECURITY.md. Unset, it skips.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: armor_test
+          POSTGRES_USER: armor
+          POSTGRES_PASSWORD: armor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U armor -d armor_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      ARMOR_TEST_DATABASE_URL: postgres://armor:armor@localhost:5432/armor_test
+      ARMOR_TEST_REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@46511b1c83438f0dd37c02d843619ece5a4abb5b # 1.97.1
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+      - name: cargo build (workspace, all targets)
+        run: cargo build --workspace --all-targets --locked
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # `--nocapture` so the "SKIPPING ..." notices that service-backed tests
+      # print instead of failing reach the log for the next step to inspect;
+      # libtest swallows their stderr otherwise. `pipefail` because `tee`
+      # exits 0 and would otherwise mask a real test failure.
+      - name: cargo test
+        run: |
+          set -o pipefail
+          cargo test --workspace --exclude armor-storage --locked -- --nocapture 2>&1 | tee test-output.txt
+      # `armor-storage`'s tests all share the one scratch database above, and
+      # `sessions::purge_expired` / `vault::purge_expired` are table-wide
+      # DELETEs by design (crates/storage/src/sessions.rs). The tests that
+      # assert a no-TTL row survives a sweep call them with a far-future
+      # cutoff, which collects rows a concurrently-running test is still
+      # asserting on — so this crate's tests are not safe to run in parallel
+      # against a shared database. Serialized rather than parallel: the whole
+      # crate is ~2s single-threaded, which is cheaper than the alternatives
+      # (a database per test, or a mutex that only holds until someone adds
+      # another TTL-creating test).
+      - name: cargo test (armor-storage, serialized — shared database)
+        run: |
+          set -o pipefail
+          cargo test -p armor-storage --locked -- --nocapture --test-threads=1 2>&1 | tee -a test-output.txt
+      # Guards against the tests above silently degrading to "skipped" if a
+      # service block or one of the ARMOR_TEST_* vars is ever dropped. Matches
+      # the bare "SKIPPING" prefix rather than one specific message, so a
+      # newly-added integration test that needs a service we do not run here
+      # trips this too instead of passing by doing nothing. Reads the log the
+      # previous step already produced — re-running the suite to grep it would
+      # double the job.
+      - name: assert no service-backed test was skipped
+        run: |
+          if grep -n "SKIPPING" test-output.txt; then
+            echo "::error::Integration tests were skipped; an ARMOR_TEST_* service URL is not reaching them (see the matches above)."
+            exit 1
+          fi
+
+  inference:
+    name: pytest (armor-inference)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # The base install plus [dev]. NOT [onnx] and NOT [export]: the whole
+      # point of the sidecar's design is that it boots and serves on the stub
+      # runner with no ML stack, and installing one here would mean CI stops
+      # checking the property the image depends on.
+      - name: install
+        run: pip install "./inference[dev]"
+      # Lint before tests: a failing lint is a one-line fix, and finding it
+      # after a full test run wastes the contributor's iteration. The rule
+      # selection and what is deliberately left out are documented in
+      # inference/pyproject.toml's [tool.ruff.lint].
+      - name: ruff
+        run: ruff check inference/src inference/tests
+      - name: pytest
+        run: pytest inference/tests -q
+      # The sidecar reads config/ml_catalog.yaml, armor-core will read the
+      # same file, and nothing else asserts they agree on what a task is. A
+      # catalog that names a runner the service cannot build is a boot-time
+      # 503 that only shows up in a deployment.
+      - name: the shipped catalog is loadable
+        run: python -m armor_inference.fetch --list
+
+  docker-build:
+    name: docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            name: armor-api
+          - dockerfile: Dockerfile.inference
+            name: armor-inference
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # Still to come, when `armor-api` actually calls the
+  # sidecar: a cross-boundary job that boots armor-inference on its stub
+  # runners and runs `crates/api/tests/inference_integration.rs` against it.
+  # That job is the reason the two languages share a repository — treat it as
+  # required, never optional.

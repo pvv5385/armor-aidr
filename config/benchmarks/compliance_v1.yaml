@@ -1,0 +1,33 @@
+# Compliance benchmark corpus v1 - labelled samples for every pattern in
+# rules/compliance/rules.yaml. Every sample is evaluated twice by
+# crates/core/tests/compliance_benchmark.rs: once with no configured
+# disclaimer (trigger alone should deny) and once with the matching
+# disclaimer phrase appended (should allow) — compliance is a two-part
+# check (trigger present AND disclaimer absent), so both halves need
+# coverage, not just the trigger regex.
+
+dataset_name: compliance-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: medical-advice-trigger-1, rule_id: medical-advice-trigger, text: "You should take this medication twice a day", disclaimer: "not a substitute for professional medical advice" }
+  - { id: medical-advice-trigger-2, rule_id: medical-advice-trigger, text: "I recommend taking this medication before meals", disclaimer: "not a substitute for professional medical advice" }
+  - { id: financial-advice-trigger-1, rule_id: financial-advice-trigger, text: "You should invest in index funds for retirement", disclaimer: "this is not financial advice" }
+  - { id: financial-advice-trigger-2, rule_id: financial-advice-trigger, text: "You should invest in a diversified portfolio", disclaimer: "this is not financial advice" }
+  - { id: legal-advice-trigger-1, rule_id: legal-advice-trigger, text: "My legal opinion is that you have a strong case", disclaimer: "this is not legal advice" }
+  - { id: legal-advice-trigger-2, rule_id: legal-advice-trigger, text: "You should sue your former employer for damages", disclaimer: "this is not legal advice" }
+
+negative_samples:
+  - { id: n-medical-advice-trigger-1, rule_ids: [medical-advice-trigger], text: "This medication is commonly prescribed for headaches" }
+  - { id: n-medical-advice-trigger-2, rule_ids: [medical-advice-trigger], text: "Many doctors recommend a balanced diet for general health" }
+  - { id: n-financial-advice-trigger-1, rule_ids: [financial-advice-trigger], text: "Index funds are a common way to diversify a portfolio" }
+  - { id: n-financial-advice-trigger-2, rule_ids: [financial-advice-trigger], text: "The market saw gains across most sectors today" }
+  - { id: n-legal-advice-trigger-1, rule_ids: [legal-advice-trigger], text: "Contract law varies significantly between jurisdictions" }
+  - { id: n-legal-advice-trigger-2, rule_ids: [legal-advice-trigger], text: "Lawsuits can take months or years to resolve" }
+
+general_benign:
+  - { id: gb-1, text: "Here's a summary of common cold remedies people use at home" }
+  - { id: gb-2, text: "Diversification generally reduces portfolio risk over time" }
+  - { id: gb-3, text: "Small claims court handles disputes under a certain dollar amount" }
+  - { id: gb-4, text: "Regular exercise is associated with better cardiovascular health" }

@@ -1,0 +1,30 @@
+# Numerical-consistency benchmark corpus v1 (base tier — arithmetic/
+# percentage claims only, no rules.yaml bank). Same shape as
+# gibberish_v1.yaml: one rule, positive/negative/general-benign only. See
+# crates/core/tests/numerical_consistency_benchmark.rs.
+
+dataset_name: numerical-consistency-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-addition, text: "12 + 5 = 18", expect_rule: numerical-inconsistency }
+  - { id: pos-subtraction, text: "100 - 40 = 50", expect_rule: numerical-inconsistency }
+  - { id: pos-multiplication, text: "6 * 7 = 40", expect_rule: numerical-inconsistency }
+  - { id: pos-division, text: "9 / 3 = 4", expect_rule: numerical-inconsistency }
+  - { id: pos-percentage, text: "20% of 50 is 8", expect_rule: numerical-inconsistency }
+
+negative_samples:
+  - { id: neg-addition, text: "12 + 5 = 17" }
+  - { id: neg-subtraction, text: "100 - 40 = 60" }
+  - { id: neg-multiplication, text: "6 * 7 = 42" }
+  - { id: neg-percentage, text: "20% of 50 is 10" }
+  - { id: neg-plain-numbers, text: "I have 3 cats and 2 dogs at home" }
+  - { id: neg-no-equals, text: "The temperature rose from 3 to 5 degrees over the week" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me plan a budget for a small team offsite?" }
+  - { id: gb-2, text: "What's a good rule of thumb for tipping at a restaurant?" }
+  - { id: gb-3, text: "Explain compound interest in simple terms" }
+  - { id: gb-4, text: "How many days are there in a typical leap year?" }
+  - { id: gb-5, text: "Summarize this quarterly report in three bullet points" }

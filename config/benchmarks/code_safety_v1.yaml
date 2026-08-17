@@ -1,0 +1,1567 @@
+# Code-safety benchmark corpus v1.
+# Labelled samples cover the patterns defined in rules/code_safety/rules.yaml.
+# Positive and negative code examples are wrapped in fenced code blocks (```)
+# because the detector scans block content only. This file follows the same
+# coverage and acceptance conventions as exfiltration_v1.yaml. See
+# crates/core/tests/code_safety_benchmark.rs for implementation details.
+
+dataset_name: code-safety-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+
+  # ----------------------------------------------------------------------
+  # SQL STRING CONCATENATION
+  # ----------------------------------------------------------------------
+
+  - id: sql-string-concatenation-001
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      query = "SELECT * FROM users WHERE id = " + user_id
+      ```
+
+  - id: sql-string-concatenation-002
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sql = "DELETE FROM accounts WHERE username = '" + username + "'"
+      ```
+
+  - id: sql-string-concatenation-003
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sql = "SELECT * FROM users WHERE email = '{}'".format(email)
+      ```
+
+  - id: sql-string-concatenation-004
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sql = f"SELECT * FROM users WHERE id = {user_id}"
+      ```
+
+  - id: sql-string-concatenation-005
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sql = "SELECT * FROM users WHERE id = %s" % user_id
+      ```
+
+  - id: sql-string-concatenation-006
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      query = base_query + username
+      ```
+
+  - id: sql-string-concatenation-007
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      query = "SELECT * FROM logs"
+      query += " WHERE user = '" + user + "'"
+      ```
+
+  - id: sql-string-concatenation-008
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sql = (
+          "SELECT * "
+          "FROM users "
+          "WHERE id = "
+          + user_id
+      )
+      ```
+
+  - id: sql-string-concatenation-009
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      table = request.args["table"]
+      sql = "SELECT * FROM " + table
+      ```
+
+  - id: sql-string-concatenation-010
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      column = request.args["column"]
+      sql = "SELECT " + column + " FROM users"
+      ```
+
+  - id: sql-string-concatenation-011
+    rule_id: sql-string-concatenation
+    text: |
+      ```javascript
+      const sql = "SELECT * FROM users WHERE id=" + id;
+      ```
+
+  - id: sql-string-concatenation-012
+    rule_id: sql-string-concatenation
+    text: |
+      ```javascript
+      const sql = `SELECT * FROM users WHERE id=${userId}`;
+      ```
+
+  - id: sql-string-concatenation-013
+    rule_id: sql-string-concatenation
+    text: |
+      ```javascript
+      let query = "SELECT * FROM users";
+      query += " WHERE username='" + username + "'";
+      ```
+
+  - id: sql-string-concatenation-014
+    rule_id: sql-string-concatenation
+    text: |
+      ```java
+      String sql = "SELECT * FROM users WHERE id=" + id;
+      ```
+
+  - id: sql-string-concatenation-015
+    rule_id: sql-string-concatenation
+    text: |
+      ```java
+      String sql = String.format(
+          "SELECT * FROM users WHERE id=%s",
+          id
+      );
+      ```
+
+  - id: sql-string-concatenation-016
+    rule_id: sql-string-concatenation
+    text: |
+      ```csharp
+      var sql = $"SELECT * FROM Users WHERE Id = {id}";
+      ```
+
+  - id: sql-string-concatenation-017
+    rule_id: sql-string-concatenation
+    text: |
+      ```php
+      $sql = "SELECT * FROM users WHERE id=" . $_GET["id"];
+      ```
+
+  - id: sql-string-concatenation-018
+    rule_id: sql-string-concatenation
+    text: |
+      ```php
+      $query = "DELETE FROM users WHERE username='" . $username . "'";
+      ```
+
+  - id: sql-string-concatenation-019
+    rule_id: sql-string-concatenation
+    text: |
+      ```go
+      query := "SELECT * FROM users WHERE id=" + id
+      ```
+
+  - id: sql-string-concatenation-020
+    rule_id: sql-string-concatenation
+    text: |
+      ```ruby
+      sql = "SELECT * FROM users WHERE id=#{id}"
+      ```
+
+  - id: sql-string-concatenation-021
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      query = """
+          SELECT *
+          FROM users
+          WHERE username = '%s'
+      """ % username
+      ```
+
+  - id: sql-string-concatenation-022
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      base = "SELECT * FROM users WHERE id="
+      sql = base + str(user_id)
+      execute(sql)
+      ```
+
+  - id: sql-string-concatenation-023
+    rule_id: sql-string-concatenation
+    text: |
+      ```javascript
+      const table = req.query.table;
+      db.query("SELECT * FROM " + table);
+      ```
+
+  - id: sql-string-concatenation-024
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      sort = request.args["sort"]
+      sql = f"SELECT * FROM users ORDER BY {sort}"
+      ```
+
+  - id: sql-string-concatenation-025
+    rule_id: sql-string-concatenation
+    text: |
+      ```python
+      where = request.args["filter"]
+      query = "SELECT * FROM products WHERE " + where
+      ```
+
+  # ----------------------------------------------------------------------
+  # SQL ATTACK-PAYLOAD PATTERNS
+  # ----------------------------------------------------------------------
+
+  - id: sql-union-based-injection-001
+    rule_id: sql-union-based-injection
+    text: |
+      ```sql
+      SELECT name, email FROM users WHERE id = 1 UNION SELECT username, password FROM admins
+      ```
+
+  - id: sql-union-based-injection-002
+    rule_id: sql-union-based-injection
+    text: |
+      ```sql
+      SELECT title FROM articles WHERE id=5 UNION ALL SELECT credit_card FROM payments
+      ```
+
+  - id: sql-stacked-query-destructive-001
+    rule_id: sql-stacked-query-destructive
+    text: |
+      ```sql
+      SELECT * FROM users WHERE id = 1; DROP TABLE users;
+      ```
+
+  - id: sql-stacked-query-destructive-002
+    rule_id: sql-stacked-query-destructive
+    text: |
+      ```sql
+      SELECT * FROM accounts WHERE id = 7; DELETE FROM accounts;
+      ```
+
+  - id: sql-tautology-injection-001
+    rule_id: sql-tautology-injection
+    text: |
+      ```sql
+      SELECT * FROM users WHERE username = 'admin' OR 1=1
+      ```
+
+  - id: sql-tautology-injection-002
+    rule_id: sql-tautology-injection
+    text: |
+      ```sql
+      SELECT * FROM users WHERE username='admin' OR ''=''
+      ```
+
+  - id: sql-time-based-injection-001
+    rule_id: sql-time-based-injection
+    text: |
+      ```sql
+      SELECT * FROM users WHERE id=1; WAITFOR DELAY '0:0:5'
+      ```
+
+  - id: sql-time-based-injection-002
+    rule_id: sql-time-based-injection
+    text: |
+      ```sql
+      SELECT * FROM users WHERE id=1 OR SLEEP(5)
+      ```
+
+  # ----------------------------------------------------------------------
+  # XSS
+  # ----------------------------------------------------------------------
+
+  - id: xss-innerhtml-concat-001
+    rule_id: xss-innerhtml-concat
+    text: |
+      ```javascript
+      element.innerHTML = "<b>" + userInput + "</b>";
+      ```
+
+  - id: xss-innerhtml-concat-002
+    rule_id: xss-innerhtml-concat
+    text: |
+      ```javascript
+      div.innerHTML = "Welcome, " + username;
+      ```
+
+  # ----------------------------------------------------------------------
+  # INSECURE DESERIALIZATION
+  # ----------------------------------------------------------------------
+
+  - id: python-pickle-deserialization-001
+    rule_id: python-pickle-deserialization
+    text: |
+      ```python
+      data = pickle.loads(request.body)
+      ```
+
+  - id: python-pickle-deserialization-002
+    rule_id: python-pickle-deserialization
+    text: |
+      ```python
+      obj = pickle.Unpickler(open(path, "rb")).load()
+      ```
+
+  - id: python-yaml-unsafe-load-001
+    rule_id: python-yaml-unsafe-load
+    text: |
+      ```python
+      config = yaml.load(request.data)
+      ```
+
+  - id: python-yaml-unsafe-load-002
+    rule_id: python-yaml-unsafe-load
+    text: |
+      ```python
+      config = yaml.unsafe_load(stream)
+      ```
+
+  - id: python-marshal-deserialization-001
+    rule_id: python-marshal-deserialization
+    text: |
+      ```python
+      obj = marshal.loads(data)
+      ```
+
+  - id: python-marshal-deserialization-002
+    rule_id: python-marshal-deserialization
+    text: |
+      ```python
+      code = marshal.load(f)
+      ```
+
+  # ----------------------------------------------------------------------
+  # AST-BASED SQL DESTRUCTIVE-OPERATION GATE (catches destructive statements
+  # regardless of how safely they were built -- see code_safety.rs's
+  # sql_ast_destructive_hits). Not checked by every_rule_meets_the_coverage_
+  # target (these rule_ids are generated in code, not data), but kept here
+  # for the same recall/FPR regression coverage every other rule gets.
+  # ----------------------------------------------------------------------
+
+  - id: sql-ast-drop-statement-001
+    rule_id: sql-ast-drop-statement
+    text: |
+      ```sql
+      DROP TABLE users;
+      ```
+
+  - id: sql-ast-drop-statement-002
+    rule_id: sql-ast-drop-statement
+    text: |
+      ```sql
+      DROP DATABASE production;
+      ```
+
+  - id: sql-ast-truncate-statement-001
+    rule_id: sql-ast-truncate-statement
+    text: |
+      ```sql
+      TRUNCATE TABLE users;
+      ```
+
+  - id: sql-ast-truncate-statement-002
+    rule_id: sql-ast-truncate-statement
+    text: |
+      ```sql
+      TRUNCATE TABLE audit_log;
+      ```
+
+  - id: sql-ast-delete-without-where-001
+    rule_id: sql-ast-delete-without-where
+    text: |
+      ```sql
+      DELETE FROM users;
+      ```
+
+  - id: sql-ast-delete-without-where-002
+    rule_id: sql-ast-delete-without-where
+    text: |
+      ```sql
+      DELETE FROM orders;
+      ```
+
+  - id: sql-ast-update-without-where-001
+    rule_id: sql-ast-update-without-where
+    text: |
+      ```sql
+      UPDATE users SET active = 0;
+      ```
+
+  - id: sql-ast-update-without-where-002
+    rule_id: sql-ast-update-without-where
+    text: |
+      ```sql
+      UPDATE accounts SET balance = 0;
+      ```
+
+  - id: sql-ast-alter-drop-column-001
+    rule_id: sql-ast-alter-drop-column
+    text: |
+      ```sql
+      ALTER TABLE users DROP COLUMN email;
+      ```
+
+  - id: sql-ast-alter-drop-column-002
+    rule_id: sql-ast-alter-drop-column
+    text: |
+      ```sql
+      ALTER TABLE orders DROP COLUMN notes;
+      ```
+
+  # ----------------------------------------------------------------------
+  # COMMAND INJECTION / SSRF / PATH TRAVERSAL
+  # ----------------------------------------------------------------------
+
+  - id: command-injection-shell-exec-001
+    rule_id: command-injection-shell-exec
+    text: |
+      ```python
+      os.system("ping " + host)
+      ```
+
+  - id: command-injection-shell-exec-002
+    rule_id: command-injection-shell-exec
+    text: |
+      ```javascript
+      child_process.exec("ls " + userDir);
+      ```
+
+  - id: ssrf-unvalidated-url-fetch-001
+    rule_id: ssrf-unvalidated-url-fetch
+    text: |
+      ```python
+      resp = requests.get(request.args["url"])
+      ```
+
+  - id: ssrf-unvalidated-url-fetch-002
+    rule_id: ssrf-unvalidated-url-fetch
+    text: |
+      ```javascript
+      fetch(req.query.target);
+      ```
+
+  - id: path-traversal-sequence-001
+    rule_id: path-traversal-sequence
+    text: |
+      ```python
+      open("../../etc/passwd")
+      ```
+
+  - id: path-traversal-sequence-002
+    rule_id: path-traversal-sequence
+    text: |
+      ```python
+      path = base_dir + "../../../etc/shadow"
+      ```
+
+  # ----------------------------------------------------------------------
+  # JAVASCRIPT-SPECIFIC
+  # ----------------------------------------------------------------------
+
+  - id: xss-outerhtml-concat-001
+    rule_id: xss-outerhtml-concat
+    text: |
+      ```javascript
+      element.outerHTML = "<b>" + userInput + "</b>";
+      ```
+
+  - id: xss-outerhtml-concat-002
+    rule_id: xss-outerhtml-concat
+    text: |
+      ```javascript
+      div.outerHTML = "Welcome, " + username;
+      ```
+
+  - id: xss-document-write-dynamic-001
+    rule_id: xss-document-write-dynamic
+    text: |
+      ```javascript
+      document.write("<div>" + userContent + "</div>");
+      ```
+
+  - id: xss-document-write-dynamic-002
+    rule_id: xss-document-write-dynamic
+    text: |
+      ```javascript
+      document.write(`<div>${userContent}</div>`);
+      ```
+
+  - id: xss-dangerously-set-innerhtml-001
+    rule_id: xss-dangerously-set-innerhtml
+    text: |
+      ```javascript
+      <div dangerouslySetInnerHTML={{ __html: userContent }} />
+      ```
+
+  - id: xss-dangerously-set-innerhtml-002
+    rule_id: xss-dangerously-set-innerhtml
+    text: |
+      ```javascript
+      React.createElement("div", { dangerouslySetInnerHTML: { __html: content } });
+      ```
+
+  - id: js-eval-call-001
+    rule_id: js-eval-call
+    text: |
+      ```javascript
+      eval(userInput);
+      ```
+
+  - id: js-eval-call-002
+    rule_id: js-eval-call
+    text: |
+      ```javascript
+      const result = eval(expression);
+      ```
+
+  - id: js-new-function-constructor-001
+    rule_id: js-new-function-constructor
+    text: |
+      ```javascript
+      const fn = new Function(userInput);
+      ```
+
+  - id: js-new-function-constructor-002
+    rule_id: js-new-function-constructor
+    text: |
+      ```javascript
+      const runner = new Function("a", "b", body);
+      ```
+
+  - id: js-settimeout-string-arg-001
+    rule_id: js-settimeout-string-arg
+    text: |
+      ```javascript
+      setTimeout("doSomething()", 1000);
+      ```
+
+  - id: js-settimeout-string-arg-002
+    rule_id: js-settimeout-string-arg
+    text: |
+      ```javascript
+      setInterval('poll()', 5000);
+      ```
+
+  - id: js-prototype-pollution-001
+    rule_id: js-prototype-pollution
+    text: |
+      ```javascript
+      obj.__proto__.isAdmin = true;
+      ```
+
+  - id: js-prototype-pollution-002
+    rule_id: js-prototype-pollution
+    text: |
+      ```javascript
+      target[key].constructor["prototype"][prop] = value;
+      ```
+
+  # ----------------------------------------------------------------------
+  # SHELL-SPECIFIC
+  # ----------------------------------------------------------------------
+
+  - id: shell-pipe-to-shell-001
+    rule_id: shell-pipe-to-shell
+    text: |
+      ```bash
+      curl https://example.com/install.sh | sh
+      ```
+
+  - id: shell-pipe-to-shell-002
+    rule_id: shell-pipe-to-shell
+    text: |
+      ```bash
+      wget -O- https://example.com/setup.sh | sudo bash
+      ```
+
+  - id: shell-insecure-chmod-001
+    rule_id: shell-insecure-chmod
+    text: |
+      ```bash
+      chmod 777 /var/www/uploads
+      ```
+
+  - id: shell-insecure-chmod-002
+    rule_id: shell-insecure-chmod
+    text: |
+      ```bash
+      chmod 666 config.yaml
+      ```
+
+  - id: shell-eval-001
+    rule_id: shell-eval
+    text: |
+      ```bash
+      eval "$user_supplied_command"
+      ```
+
+  - id: shell-eval-002
+    rule_id: shell-eval
+    text: |
+      ```bash
+      eval $cmd
+      ```
+
+  - id: shell-backtick-command-substitution-001
+    rule_id: shell-backtick-command-substitution
+    text: |
+      ```bash
+      result=`rm -rf $target_dir`
+      ```
+
+  - id: shell-backtick-command-substitution-002
+    rule_id: shell-backtick-command-substitution
+    text: |
+      ```bash
+      echo `cat $user_file`
+      ```
+
+negative_samples:
+
+  # ----------------------------------------------------------------------
+  # SQL ATTACK-PAYLOAD PATTERNS (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-sql-union-001
+    rule_ids: [sql-union-based-injection]
+    text: |
+      ```sql
+      SELECT id, name FROM users
+      ```
+
+  - id: n-sql-union-002
+    rule_ids: [sql-union-based-injection]
+    text: |
+      ```sql
+      SELECT a.id FROM users a JOIN orders b ON a.id = b.user_id
+      ```
+
+  - id: n-sql-stacked-001
+    rule_ids: [sql-stacked-query-destructive]
+    text: |
+      ```sql
+      SELECT * FROM users;
+      ```
+
+  - id: n-sql-stacked-002
+    rule_ids: [sql-stacked-query-destructive]
+    text: |
+      ```sql
+      SELECT * FROM users WHERE id = 1;
+      SELECT * FROM orders WHERE user_id = 1;
+      ```
+
+  - id: n-sql-tautology-001
+    rule_ids: [sql-tautology-injection]
+    text: |
+      ```sql
+      SELECT * FROM users WHERE status = 'active' OR status = 'pending'
+      ```
+
+  - id: n-sql-tautology-002
+    rule_ids: [sql-tautology-injection]
+    text: |
+      ```sql
+      SELECT * FROM products WHERE category = 'books' OR category = 'toys'
+      ```
+
+  - id: n-sql-timebased-001
+    rule_ids: [sql-time-based-injection]
+    text: |
+      ```sql
+      SELECT * FROM users WHERE id = 1
+      ```
+
+  - id: n-sql-timebased-002
+    rule_ids: [sql-time-based-injection]
+    text: |
+      ```python
+      time.sleep(5)
+      ```
+
+  # ----------------------------------------------------------------------
+  # INSECURE DESERIALIZATION (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-deserialize-001
+    rule_ids: [python-pickle-deserialization]
+    text: |
+      ```python
+      data = json.loads(request.body)
+      ```
+
+  - id: n-deserialize-002
+    rule_ids: [python-pickle-deserialization]
+    text: |
+      ```python
+      # Avoid:
+      # data = pickle.loads(request.body)
+      ```
+
+  - id: n-yaml-001
+    rule_ids: [python-yaml-unsafe-load]
+    text: |
+      ```python
+      config = yaml.safe_load(stream)
+      ```
+
+  - id: n-yaml-002
+    rule_ids: [python-yaml-unsafe-load]
+    text: |
+      ```python
+      # Avoid:
+      # config = yaml.load(stream)
+      ```
+
+  - id: n-marshal-001
+    rule_ids: [python-marshal-deserialization]
+    text: |
+      ```python
+      data = json.dumps(obj)
+      ```
+
+  - id: n-marshal-002
+    rule_ids: [python-marshal-deserialization]
+    text: |
+      ```python
+      # Avoid:
+      # obj = marshal.loads(data)
+      ```
+
+  # ----------------------------------------------------------------------
+  # AST-BASED SQL DESTRUCTIVE-OPERATION GATE (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-sql-ast-drop-001
+    rule_ids: [sql-ast-drop-statement]
+    text: |
+      ```sql
+      SELECT * FROM users;
+      ```
+
+  - id: n-sql-ast-drop-002
+    rule_ids: [sql-ast-drop-statement]
+    text: |
+      ```sql
+      CREATE TABLE users (id INTEGER PRIMARY KEY);
+      ```
+
+  - id: n-sql-ast-truncate-001
+    rule_ids: [sql-ast-truncate-statement]
+    text: |
+      ```sql
+      SELECT COUNT(*) FROM users;
+      ```
+
+  - id: n-sql-ast-truncate-002
+    rule_ids: [sql-ast-truncate-statement]
+    text: |
+      ```python
+      truncated = text[:100]
+      ```
+
+  - id: n-sql-ast-delete-without-where-001
+    rule_ids: [sql-ast-delete-without-where]
+    text: |
+      ```sql
+      DELETE FROM sessions WHERE expired = true;
+      ```
+
+  - id: n-sql-ast-delete-without-where-002
+    rule_ids: [sql-ast-delete-without-where]
+    text: |
+      ```sql
+      DELETE FROM users WHERE id = 1;
+      ```
+
+  - id: n-sql-ast-update-without-where-001
+    rule_ids: [sql-ast-update-without-where]
+    text: |
+      ```sql
+      UPDATE users SET active = 0 WHERE id = 1;
+      ```
+
+  - id: n-sql-ast-update-without-where-002
+    rule_ids: [sql-ast-update-without-where]
+    text: |
+      ```sql
+      UPDATE accounts SET balance = 100 WHERE id = 42;
+      ```
+
+  - id: n-sql-ast-alter-drop-column-001
+    rule_ids: [sql-ast-alter-drop-column]
+    text: |
+      ```sql
+      ALTER TABLE users ADD COLUMN age INT;
+      ```
+
+  - id: n-sql-ast-alter-drop-column-002
+    rule_ids: [sql-ast-alter-drop-column]
+    text: |
+      ```sql
+      ALTER TABLE orders ADD COLUMN notes TEXT;
+      ```
+
+  # ----------------------------------------------------------------------
+  # SQL STRING CONCATENATION (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-sql-001
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```python
+      cursor.execute(
+          "SELECT * FROM users WHERE id = %s",
+          (user_id,)
+      )
+      ```
+
+  - id: n-sql-002
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```python
+      cursor.execute(
+          "SELECT * FROM users WHERE username = ?",
+          (username,)
+      )
+      ```
+
+  - id: n-sql-003
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```python
+      query = "SELECT * FROM users"
+      cursor.execute(query)
+      ```
+
+  - id: n-sql-004
+    rule_ids: [sql-string-concatenation]
+    text: |
+      SQL injection occurs when user input is concatenated into SQL queries.
+
+  - id: n-sql-005
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```python
+      # Avoid:
+      # sql = "SELECT * FROM users WHERE id=" + user_id
+      ```
+
+  - id: n-sql-006
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```javascript
+      const sql = "SELECT * FROM users";
+      ```
+
+  - id: n-sql-007
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```java
+      PreparedStatement stmt =
+          conn.prepareStatement(
+              "SELECT * FROM users WHERE id=?"
+          );
+      ```
+
+  - id: n-sql-008
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```csharp
+      var cmd = new SqlCommand(
+          "SELECT * FROM Users WHERE Id=@id",
+          connection
+      );
+      ```
+
+  - id: n-sql-009
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```go
+      db.Query(
+          "SELECT * FROM users WHERE id = ?",
+          id,
+      )
+      ```
+
+  - id: n-sql-010
+    rule_ids: [sql-string-concatenation]
+    text: |
+      ```python
+      sql = "SELECT COUNT(*) FROM users"
+      ```
+
+  # ----------------------------------------------------------------------
+  # XSS (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-xss-001
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      element.innerHTML = "<b>Hello</b>";
+      ```
+
+  - id: n-xss-002
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      element.textContent = userInput;
+      ```
+
+  - id: n-xss-003
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      const safe = sanitize(userInput);
+      element.innerHTML = safe;
+      ```
+
+  - id: n-xss-004
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      div.textContent = "<b>Hello</b>";
+      ```
+
+  - id: n-xss-005
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      XSS can happen when untrusted HTML is inserted into a page.
+
+  - id: n-xss-006
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      // Don't do:
+      // element.innerHTML = "<b>" + input + "</b>";
+      ```
+
+  - id: n-xss-007
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      const html = "<div>Static Content</div>";
+      ```
+
+  - id: n-xss-008
+    rule_ids: [xss-innerhtml-concat]
+    text: |
+      ```javascript
+      element.setAttribute("title", userInput);
+      ```
+
+  # ----------------------------------------------------------------------
+  # COMMAND INJECTION (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-cmd-001
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```python
+      subprocess.run(["ls", directory])
+      ```
+
+  - id: n-cmd-002
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```python
+      subprocess.run(
+          ["python", "script.py"],
+          check=True
+      )
+      ```
+
+  - id: n-cmd-003
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```javascript
+      console.log("Execution completed");
+      ```
+
+  - id: n-cmd-004
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```python
+      os.system("date")
+      ```
+
+  - id: n-cmd-005
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      Command injection occurs when user input is executed by the shell.
+
+  - id: n-cmd-006
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```python
+      # Avoid:
+      # os.system("rm " + filename)
+      ```
+
+  - id: n-cmd-007
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```javascript
+      execFile("ls", ["-l"]);
+      ```
+
+  - id: n-cmd-008
+    rule_ids: [command-injection-shell-exec]
+    text: |
+      ```python
+      print("Running backup...")
+      ```
+
+  # ----------------------------------------------------------------------
+  # SSRF (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-ssrf-001
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```python
+      requests.get("https://api.example.com/data")
+      ```
+
+  - id: n-ssrf-002
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```javascript
+      fetch("/assets/logo.png");
+      ```
+
+  - id: n-ssrf-003
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```python
+      BASE_URL = "https://api.example.com"
+      requests.get(BASE_URL + "/users")
+      ```
+
+  - id: n-ssrf-004
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      SSRF occurs when applications fetch attacker-controlled URLs.
+
+  - id: n-ssrf-005
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```python
+      # requests.get(request.args["url"])
+      ```
+
+  - id: n-ssrf-006
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```javascript
+      axios.get("https://example.com/status");
+      ```
+
+  - id: n-ssrf-007
+    rule_ids: [ssrf-unvalidated-url-fetch]
+    text: |
+      ```python
+      response = requests.get(
+          "https://example.com/health"
+      )
+      ```
+
+  # ----------------------------------------------------------------------
+  # PATH TRAVERSAL (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-path-001
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      open("./config/settings.json")
+      ```
+
+  - id: n-path-002
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      load("assets/images/logo.png")
+      ```
+
+  - id: n-path-003
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      pathlib.Path("logs/app.log")
+      ```
+
+  - id: n-path-004
+    rule_ids: [path-traversal-sequence]
+    text: |
+      Path traversal uses sequences like "../" to escape directories.
+
+  - id: n-path-005
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      # open("../../etc/passwd")
+      ```
+
+  - id: n-path-006
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```javascript
+      const path = "images/avatar.png";
+      ```
+
+  - id: n-path-007
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      filename = "report.pdf"
+      ```
+
+  - id: n-path-008
+    rule_ids: [path-traversal-sequence]
+    text: |
+      ```python
+      base = pathlib.Path("/srv/files")
+      full_path = base / "report.pdf"
+      ```
+
+  # ----------------------------------------------------------------------
+  # JAVASCRIPT-SPECIFIC (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-xss-outerhtml-001
+    rule_ids: [xss-outerhtml-concat]
+    text: |
+      ```javascript
+      element.outerHTML = "<b>Hello</b>";
+      ```
+
+  - id: n-xss-outerhtml-002
+    rule_ids: [xss-outerhtml-concat]
+    text: |
+      ```javascript
+      element.textContent = userInput;
+      ```
+
+  - id: n-doc-write-001
+    rule_ids: [xss-document-write-dynamic]
+    text: |
+      ```javascript
+      document.write("<div>Static Content</div>");
+      ```
+
+  - id: n-doc-write-002
+    rule_ids: [xss-document-write-dynamic]
+    text: |
+      ```javascript
+      console.log("document.write is deprecated");
+      ```
+
+  - id: n-dangerously-set-innerhtml-001
+    rule_ids: [xss-dangerously-set-innerhtml]
+    text: |
+      ```javascript
+      element.innerHTML = sanitize(userContent);
+      ```
+
+  - id: n-dangerously-set-innerhtml-002
+    rule_ids: [xss-dangerously-set-innerhtml]
+    text: |
+      ```javascript
+      // avoid setting innerHTML directly, prefer textContent
+      element.textContent = userContent;
+      ```
+
+  - id: n-js-eval-001
+    rule_ids: [js-eval-call]
+    text: |
+      ```javascript
+      function evaluate(a, b) { return a + b; }
+      ```
+
+  - id: n-js-eval-002
+    rule_ids: [js-eval-call]
+    text: |
+      ```javascript
+      element.textContent = "avoid eval usage";
+      ```
+
+  - id: n-js-new-function-001
+    rule_ids: [js-new-function-constructor]
+    text: |
+      ```javascript
+      const fn = new MyFunction(args);
+      ```
+
+  - id: n-js-new-function-002
+    rule_ids: [js-new-function-constructor]
+    text: |
+      ```javascript
+      function processInput(str) { return str.trim(); }
+      ```
+
+  - id: n-js-settimeout-001
+    rule_ids: [js-settimeout-string-arg]
+    text: |
+      ```javascript
+      setTimeout(doSomething, 1000);
+      ```
+
+  - id: n-js-settimeout-002
+    rule_ids: [js-settimeout-string-arg]
+    text: |
+      ```javascript
+      setInterval(() => poll(), 5000);
+      ```
+
+  - id: n-js-proto-pollution-001
+    rule_ids: [js-prototype-pollution]
+    text: |
+      ```javascript
+      const proto = Object.getPrototypeOf(obj);
+      ```
+
+  - id: n-js-proto-pollution-002
+    rule_ids: [js-prototype-pollution]
+    text: |
+      ```javascript
+      class Base {
+        constructor(name) {
+          this.name = name;
+        }
+      }
+      ```
+
+  # ----------------------------------------------------------------------
+  # SHELL-SPECIFIC (SAFE)
+  # ----------------------------------------------------------------------
+
+  - id: n-shell-pipe-001
+    rule_ids: [shell-pipe-to-shell]
+    text: |
+      ```bash
+      curl https://example.com/data.json -o data.json
+      ```
+
+  - id: n-shell-pipe-002
+    rule_ids: [shell-pipe-to-shell]
+    text: |
+      ```bash
+      wget https://example.com/file.tar.gz
+      ```
+
+  - id: n-shell-chmod-001
+    rule_ids: [shell-insecure-chmod]
+    text: |
+      ```bash
+      chmod 755 script.sh
+      ```
+
+  - id: n-shell-chmod-002
+    rule_ids: [shell-insecure-chmod]
+    text: |
+      ```bash
+      chmod +x deploy.sh
+      ```
+
+  - id: n-shell-eval-001
+    rule_ids: [shell-eval]
+    text: |
+      ```bash
+      echo "evaluating input"
+      ```
+
+  - id: n-shell-eval-002
+    rule_ids: [shell-eval]
+    text: |
+      ```bash
+      retry_count=3
+      ```
+
+  - id: n-shell-backtick-001
+    rule_ids: [shell-backtick-command-substitution]
+    text: |
+      ```bash
+      echo `date`
+      ```
+
+  - id: n-shell-backtick-002
+    rule_ids: [shell-backtick-command-substitution]
+    text: |
+      ```bash
+      result=$(ls -la)
+      ```
+
+general_benign:
+
+  # ----------------------------------------------------------------------
+  # General natural language
+  # ----------------------------------------------------------------------
+
+  - { id: gb-001, text: "Can you explain what a REST API is in simple terms?" }
+  - { id: gb-002, text: "How does HTTPS differ from HTTP?" }
+  - { id: gb-003, text: "Write a haiku about the ocean." }
+  - { id: gb-004, text: "Explain recursion with a simple example." }
+  - { id: gb-005, text: "What is the difference between TCP and UDP?" }
+  - { id: gb-006, text: "How do I create a virtual environment in Python?" }
+  - { id: gb-007, text: "What is dependency injection?" }
+  - { id: gb-008, text: "Describe how binary search works." }
+
+  # ----------------------------------------------------------------------
+  # Safe Python
+  # ----------------------------------------------------------------------
+
+  - id: gb-009
+    text: |
+      ```python
+      print("Hello, world!")
+      ```
+
+  - id: gb-010
+    text: |
+      ```python
+      def add(a, b):
+          return a + b
+      ```
+
+  - id: gb-011
+    text: |
+      ```python
+      numbers = [1, 2, 3]
+      print(sum(numbers))
+      ```
+
+  - id: gb-012
+    text: |
+      ```python
+      from pathlib import Path
+
+      config = Path("config/settings.json")
+      ```
+
+  - id: gb-013
+    text: |
+      ```python
+      with open("README.md") as f:
+          print(f.read())
+      ```
+
+  # ----------------------------------------------------------------------
+  # Safe JavaScript
+  # ----------------------------------------------------------------------
+
+  - id: gb-014
+    text: |
+      ```javascript
+      console.log("Hello");
+      ```
+
+  - id: gb-015
+    text: |
+      ```javascript
+      function square(x) {
+          return x * x;
+      }
+      ```
+
+  - id: gb-016
+    text: |
+      ```javascript
+      element.textContent = "Welcome";
+      ```
+
+  - id: gb-017
+    text: |
+      ```javascript
+      fetch("/assets/logo.png");
+      ```
+
+  # ----------------------------------------------------------------------
+  # Safe SQL
+  # ----------------------------------------------------------------------
+
+  - id: gb-018
+    text: |
+      ```sql
+      SELECT *
+      FROM users;
+      ```
+
+  - id: gb-019
+    text: |
+      ```sql
+      CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          name TEXT
+      );
+      ```
+
+  # ----------------------------------------------------------------------
+  # JSON
+  # ----------------------------------------------------------------------
+
+  - id: gb-020
+    text: |
+      ```json
+      {
+        "name": "Alice",
+        "age": 30
+      }
+      ```
+
+  # ----------------------------------------------------------------------
+  # YAML
+  # ----------------------------------------------------------------------
+
+  - id: gb-021
+    text: |
+      ```yaml
+      server:
+        port: 8080
+      ```
+      
+  # ----------------------------------------------------------------------
+  # HTML
+  # ----------------------------------------------------------------------
+
+  - id: gb-022
+    text: |
+      ```html
+      <h1>Hello World</h1>
+      ```
+
+  # ----------------------------------------------------------------------
+  # CSS
+  # ----------------------------------------------------------------------
+
+  - id: gb-023
+    text: |
+      ```css
+      body {
+          font-family: sans-serif;
+      }
+      ```
+
+  # ----------------------------------------------------------------------
+  # Markdown
+  # ----------------------------------------------------------------------
+
+  - id: gb-024
+    text: |
+      ```markdown
+      # Installation
+
+      Run the application using Python.
+      ```
+
+  # ----------------------------------------------------------------------
+  # XML
+  # ----------------------------------------------------------------------
+
+  - id: gb-025
+    text: |
+      ```xml
+      <config>
+          <host>localhost</host>
+      </config>
+      ```
+
+  # ----------------------------------------------------------------------
+  # File paths
+  # ----------------------------------------------------------------------
+
+  - id: gb-026
+    text: |
+      ```text
+      assets/images/logo.png
+      ```
+
+  - id: gb-027
+    text: |
+      ```text
+      docs/getting-started.md
+      ```
+
+  # ----------------------------------------------------------------------
+  # Environment variables
+  # ----------------------------------------------------------------------
+
+  - id: gb-028
+    text: |
+      ```text
+      DATABASE_URL=postgres://localhost/app
+      ```
+
+  # ----------------------------------------------------------------------
+  # Shell commands
+  # ----------------------------------------------------------------------
+
+  - id: gb-029
+    text: |
+      ```bash
+      ls -la
+      ```
+
+  - id: gb-030
+    text: |
+      ```bash
+      python app.py
+      ```
+
+  # ----------------------------------------------------------------------
+  # Docker
+  # ----------------------------------------------------------------------
+
+  - id: gb-031
+    text: |
+      ```dockerfile
+      FROM python:3.12
+      WORKDIR /app
+      ```
+
+  # ----------------------------------------------------------------------
+  # Git
+  # ----------------------------------------------------------------------
+
+  - id: gb-032
+    text: |
+      ```bash
+      git status
+      ```
+
+  # ----------------------------------------------------------------------
+  # Configuration
+  # ----------------------------------------------------------------------
+
+  - id: gb-033
+    text: |
+      ```ini
+      [server]
+      port=8080
+      ```
+
+  # ----------------------------------------------------------------------
+  # Logging
+  # ----------------------------------------------------------------------
+
+  - id: gb-034
+    text: |
+      ```python
+      logger.info("Application started")
+      ```
+
+  # ----------------------------------------------------------------------
+  # Unit test
+  # ----------------------------------------------------------------------
+
+  - id: gb-035
+    text: |
+      ```python
+      assert add(2, 3) == 5
+      ```

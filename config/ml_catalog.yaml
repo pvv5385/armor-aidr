@@ -1,0 +1,298 @@
+# Armor ML catalog — the single source of truth for the model-backed inference
+# tasks: which runner serves each, the pinned `model_id@revision`, provenance
+# (license / hardware / language coverage), and the vetted shortlist an
+# operator may pin instead of the default.
+#
+# It is DATA rather than code because its consumers span two languages:
+# `armor-inference` reads it at boot to build its task specs, and
+# `armor-core` will read it at policy-load time to validate that a
+# `backends.local_ml.task` actually exists.
+#
+# `sha256` is absent from every entry here, and shipping this file with one
+# baked in would be wrong (the operator's own export differs) or would have
+# to be trusted from this file, which is exactly the supply-chain assumption
+# the verification exists to remove. A model's *first* automatic install has
+# nothing to check its digest against for that reason — it is necessarily
+# trust-on-first-use.
+#
+# What closes the loop after that: once an operator has fetched and reviewed
+# a task's default pin, they may add a `sha256:` line to that task's entry
+# with the digest `armor_inference.fetch` printed. From then on, every
+# automatic install (`POST /v1/models/install` with no `model_id` override)
+# verifies the download against it before serving, and every boot of an
+# already-fetched artifact re-verifies it too (`runners/_artifacts.py`'s
+# `verify_pinned`) — so a swapped artifact on disk, not just a swapped
+# download, gets caught. Only applies to the default pin; a shortlist
+# candidate's bytes are a different artifact and are not covered.
+#
+# Nothing here is downloaded automatically. A task whose artifact is missing
+# reports `available: false` and returns 503; the service stays up.
+
+version: 1
+
+# Runner kinds the sidecar can construct. `stub` is dependency-free and always
+# present; the rest are lazy-imported only when a task asks for them.
+servable_runners: [stub, classifier, ner, embedding, nli, guard_llm]
+
+tasks:
+  prompt_injection:
+    runner: classifier
+    display_name: Prompt Injection & Jailbreak Detection
+    model_id: protectai/deberta-v3-base-prompt-injection-v2
+    revision: main
+    threshold: 0.5
+    license: apache-2.0
+    hardware: cpu-ok
+    size: 184M
+    languages: [en]
+    escalates: [prompt_injection, jailbreak]
+    detail: >-
+      The headline gap in KNOWN_LIMITATIONS.md — the deterministic tier matches
+      known injection phrasings, this scores unseen ones.
+
+  pii_ner:
+    runner: ner
+    display_name: PII Detection (Named Entities)
+    model_id: Davlan/bert-base-multilingual-cased-ner-hrl
+    revision: main
+    threshold: 0.5
+    license: apache-2.0
+    hardware: cpu-ok
+    size: 178M
+    languages: [en, ar, de, es, fr, it, lv, nl, pt, zh]
+    escalates: [pii]
+    additive: true
+    detail: >-
+      Token-level NER for unstructured PII (names, addresses) the regex and
+      checksum tier cannot see. ADDITIVE by construction: it adds findings to
+      the deterministic layer and never replaces its redaction.
+
+  toxicity:
+    runner: classifier
+    display_name: Toxicity & Harmful Content Detection
+    model_id: Xenova/toxic-bert
+    revision: main
+    threshold: 0.5
+    license: apache-2.0
+    hardware: cpu-ok
+    size: 110M
+    languages: [en]
+    escalates: [harmful_content, hate, abuse]
+    detail: >-
+      A pre-exported ONNX mirror of unitary/toxic-bert (same weights, same
+      6-label multi-label head) published under Xenova's transformers.js
+      conventions — installs by direct download, no export step. The Hub
+      repo itself carries no explicit license field (it's an unofficial
+      mirror); the substance is unitary/toxic-bert's Apache-2.0, since it's
+      a technical re-export with no added restrictions.
+
+  over_refusal:
+    runner: classifier
+    display_name: Over-Refusal Detection
+    model_id: protectai/distilroberta-base-rejection-v1
+    revision: main
+    threshold: 0.5
+    license: apache-2.0
+    hardware: cpu-ok
+    size: 82M
+    languages: [en]
+    escalates: [over_refusal]
+    detail: >-
+      Scores whether a completion is a refusal, upgrading the phrase-list
+      detector that cannot tell a refusal from a discussion of one.
+
+  topic_intent:
+    runner: embedding
+    display_name: Competitor & Topic Intent Detection
+    model_id: sentence-transformers/all-MiniLM-L6-v2
+    revision: main
+    threshold: 0.5
+    license: apache-2.0
+    hardware: cpu-ok
+    size: 22M
+    languages: [en]
+    escalates: [competitor]
+    detail: >-
+      Embedding similarity against precomputed label vectors. Not NLI: a
+      cross-encoder costs a forward pass per candidate label, which is the
+      wrong shape for a request-path check.
+
+# Alternatives an operator may pin instead of the default above. `fetch` and
+# the install API refuse anything not on this list unless explicitly
+# overridden, so the easy path is a reviewed model.
+candidates:
+  prompt_injection:
+    - model_id: protectai/deberta-v3-base-prompt-injection-v2
+      role: primary
+      license: apache-2.0
+      open_license: true
+      size: 184M
+      hardware: CPU ~50-100ms
+    - model_id: vijil/mbert-prompt-injection
+      role: alternative
+      license: apache-2.0
+      open_license: true
+      size: 178M
+      hardware: CPU ~40-80ms
+      note: Multilingual (104 languages) where the default is English-only.
+
+  toxicity:
+    - model_id: Xenova/toxic-bert
+      role: primary
+      license: apache-2.0
+      open_license: true
+      size: 110M
+      hardware: CPU ~40ms
+    - model_id: unitary/toxic-bert
+      role: alternative
+      license: apache-2.0
+      open_license: true
+      size: 110M
+      hardware: CPU ~40ms
+      note: >-
+        The original checkpoint Xenova/toxic-bert is re-exported from —
+        same weights and scores. Publishes no ONNX graph itself, so
+        installing this one requires the [export] extra (torch + optimum),
+        which the serving image only carries when built with
+        --build-arg WITH_EXPORT=true. Pin this instead of the default only
+        if you specifically want the author's own repo as the trust
+        boundary rather than a third-party mirror.
+    - model_id: unitary/multilingual-toxic-xlm-roberta
+      role: alternative
+      license: apache-2.0
+      open_license: true
+      size: 278M
+      hardware: CPU-ok
+      note: >-
+        Jigsaw-trained across 7 languages. Publishes neither an ONNX graph
+        nor a fast tokenizer, so installing it needs the [export] extra
+        (--build-arg WITH_EXPORT=true) — the heaviest of the toxicity
+        alternatives to bring in.
+    - model_id: gravitee-io/distilbert-multilingual-toxicity-classifier
+      role: alternative
+      license: openrail++
+      open_license: true
+      size: 135M
+      hardware: CPU fast
+      note: >-
+        OpenRAIL++ carries use restrictions rather than being OSI-permissive —
+        commercial self-hosting is allowed, the behavioural appendix is not
+        optional. Read it before pinning.
+
+  over_refusal:
+    - model_id: protectai/distilroberta-base-rejection-v1
+      role: primary
+      license: apache-2.0
+      open_license: true
+      size: 82M
+      hardware: CPU ~20ms
+
+  pii_ner:
+    - model_id: Davlan/bert-base-multilingual-cased-ner-hrl
+      role: primary
+      license: apache-2.0
+      open_license: true
+      size: 178M
+      hardware: CPU-ok
+    - model_id: iiiorg/piiranha-v1-detect-personal-information
+      role: alternative
+      license: mit
+      open_license: true
+      size: 278M
+      hardware: CPU-ok
+      note: PII-specific label set rather than generic PER/ORG/LOC entities.
+    - model_id: openai/privacy-filter
+      role: alternative
+      license: apache-2.0
+      open_license: true
+      size: 1.5B total / 50M active params (MoE, 128 experts); 17.4GB fp32/bf16
+        original checkpoint, but the HF repo also ships pre-exported ONNX —
+        model_q4.onnx (int4, ~900MB) is the CPU-realistic pick used for the
+        benchmark below. `armor-inference-fetch`'s own variant preference
+        (matching `_heavy.py`'s `_find_onnx` — quantized before fp32)
+        instead lands on the larger onnx/model_quantized.onnx (int8,
+        ~1.6GB) — there's no per-file variant selection yet, only per-model
+        (see note)
+      hardware: >-
+        Benchmarked here (single-threaded onnxruntime, model_q4.onnx, this
+        Mac's CPU): ~170ms @ 24 tokens, ~614ms @ 163 tokens, ~1045ms @ 487
+        tokens (~2ms/token past a ~150ms floor), plus a one-time ~2.4s cold
+        session load. Comparable to the 184M dense protectai/deberta
+        prompt_injection model, not "meaningfully slower" as originally
+        guessed — the 50M-active sparsity is doing its job. Still blows
+        through this repo's default ARMOR_INFERENCE_TIMEOUT_MS=120ms at
+        every length tested; needs the same timeout/budget bump as
+        prompt_injection, sized generously since latency grows with text
+        length here.
+      note: >-
+        All three original correctness/compat blockers are resolved as of
+        `runners/_viterbi.py` — clean license and PII-specific label set
+        (account_number/private_address/private_date/private_email/
+        private_person/private_phone/private_url/secret) with nothing left
+        standing in the way of correctness:
+        (1) BIOES tagging (B-/I-/E-/S-) — `runners/ner.py` handles it
+        (`_ENTITY_PREFIXES`/`_SPAN_START_PREFIXES`), with a regression test;
+        (2) the model card's requirement that spans be decoded with a
+        constrained Viterbi procedure over the BIOES label-chain (six named
+        transition-bias params from `viterbi_calibration.json`) rather than
+        independent per-token argmax — now implemented in
+        `runners/_viterbi.py` (ported from openai/privacy-filter's own
+        Apache-2.0 reference implementation, `opf/_core/decoding.py`, pure
+        numpy so it doesn't pull torch into the serving image) and wired
+        into `ner.py`'s `load()`/`_postprocess_single`. Validated against
+        the real downloaded model_q4.onnx artifact: correctly detects
+        name/email/phone as 3 entities on a PII sentence and 0 on a benign
+        one; a plain-BIO model (Davlan) correctly skips this decoder
+        entirely and keeps using argmax, unchanged;
+        (3) the custom `openai_privacy_filter` architecture's
+        transformers>=5.6.0 requirement is moot two ways over: that version
+        shipped stable long ago, and `fetch.py`'s `_find_prebuilt_onnx`/
+        `_download_prebuilt_onnx` now detect and pull this repo's ready-made
+        ONNX directly via `huggingface_hub` — `armor-inference-fetch --task
+        pii_ner --model-id openai/privacy-filter` no longer imports
+        torch/transformers/optimum at all for this model, so the
+        export-stack version was never actually load-bearing here.
+        Verified live: fetched the real artifact this way, loaded it through
+        `NerRunner`, Viterbi attached, correctly flagged a PII sentence.
+        (This isn't unique to this model — checked live, protectai's
+        deberta ships pre-built ONNX too and now gets the same shortcut;
+        Davlan and unitary/toxic-bert don't and still go through from-source
+        export. Whether a given model gets the pre-built path depends
+        entirely on whether its own HF repo happens to publish one.)
+        What's left is a judgment call, not a blocker: per the `hardware`
+        field above, this model is measurably slower than the current
+        Davlan pin at every length benchmarked (~5-10x on this Mac's CPU),
+        in exchange for a PII-native label set, better address coverage,
+        and a 128k-token context window Davlan's 512-token BERT cap can't
+        match. Worth pinning if that tradeoff fits the deployment; not a
+        drop-in default replacement.
+
+  topic_intent:
+    - model_id: sentence-transformers/all-MiniLM-L6-v2
+      role: primary
+      license: apache-2.0
+      open_license: true
+      size: 22M
+      hardware: CPU ~5ms
+    - model_id: BAAI/bge-small-en-v1.5
+      role: alternative
+      license: mit
+      open_license: true
+      size: 33M
+      hardware: CPU ~8ms
+    - model_id: facebook/bart-large-mnli
+      role: alternative
+      license: mit
+      open_license: true
+      size: 400M (fp32 only, no quantized variant listed)
+      hardware: CPU, meaningfully heavier than the embedding models above
+      languages: [en]
+      note: >-
+        True zero-shot NLI (entailment/contradiction over candidate labels)
+        rather than embedding-similarity — the `nli` runner kind this catalog
+        already lists under `servable_runners` but no task currently uses.
+        Not a same-runner swap: `topic_intent`'s pinned task above uses
+        `runner: embedding`, and candidates inherit the task's runner
+        (`catalog.py`'s `candidates()`), so picking this requires changing
+        `topic_intent`'s task-level `runner:` to `nli`, not just its
+        `model_id`.

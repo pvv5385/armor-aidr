@@ -1,0 +1,52 @@
+# Malicious-URL benchmark corpus v1.
+# One positive/negative pair per detection mechanism (shortener,
+# suspicious TLD, excessive subdomains, homoglyphs, typosquats, etc.). See
+# crates/core/tests/malicious_url_benchmark.rs for implementation details.
+
+dataset_name: malicious-url-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: url-ip-literal-host-1, rule_id: url-ip-literal-host, text: "click http://203.0.113.5/login" }
+  - { id: url-ip-literal-host-2, rule_id: url-ip-literal-host, text: "visit http://198.51.100.7/verify" }
+  - { id: url-punycode-host-1, rule_id: url-punycode-host, text: "visit https://xn--pple-43d.com/verify" }
+  - { id: url-punycode-host-2, rule_id: url-punycode-host, text: "check https://xn--e1aybc.com/page" }
+  - { id: url-credentials-in-authority-1, rule_id: url-credentials-in-authority, text: "login at https://accounts.google.com@evil.example/reset" }
+  - { id: url-credentials-in-authority-2, rule_id: url-credentials-in-authority, text: "go to https://support.microsoft.com@phish.example/verify" }
+  - { id: url-known-shortener-1, rule_id: url-known-shortener, text: "see https://bit.ly/3abcXyz for details" }
+  - { id: url-known-shortener-2, rule_id: url-known-shortener, text: "check https://tinyurl.com/abc123" }
+  - { id: url-suspicious-tld-1, rule_id: url-suspicious-tld, text: "check https://freegift.xyz/claim" }
+  - { id: url-suspicious-tld-2, rule_id: url-suspicious-tld, text: "visit https://prize-winner.click/claim" }
+  - { id: url-excessive-subdomains-1, rule_id: url-excessive-subdomains, text: "see https://a.b.c.d.e.example.com/page" }
+  - { id: url-excessive-subdomains-2, rule_id: url-excessive-subdomains, text: "visit https://x.y.z.w.v.example.org/page" }
+  - { id: url-homoglyph-domain-1, rule_id: url-homoglyph-domain, text: "verify at https://gооgle.com/verify" }
+  - { id: url-homoglyph-domain-2, rule_id: url-homoglyph-domain, text: "confirm at https://аpple.com/confirm" }
+  - { id: url-typosquat-domain-1, rule_id: url-typosquat-domain, text: "go to https://paypa1.com/login" }
+  - { id: url-typosquat-domain-2, rule_id: url-typosquat-domain, text: "visit https://gogle.com/search" }
+
+negative_samples:
+  - { id: n-url-ip-literal-host-1, rule_ids: [url-ip-literal-host], text: "visit https://example.com/page" }
+  - { id: n-url-ip-literal-host-2, rule_ids: [url-ip-literal-host], text: "check https://api.service.io/v1/users" }
+  - { id: n-url-punycode-host-1, rule_ids: [url-punycode-host], text: "visit https://example.com/page" }
+  - { id: n-url-punycode-host-2, rule_ids: [url-punycode-host], text: "check https://normal-domain.org/info" }
+  - { id: n-url-credentials-in-authority-1, rule_ids: [url-credentials-in-authority], text: "visit https://example.com/page" }
+  - { id: n-url-credentials-in-authority-2, rule_ids: [url-credentials-in-authority], text: "check https://api.service.io/v1/users" }
+  - { id: n-url-known-shortener-1, rule_ids: [url-known-shortener], text: "visit https://example.com/page" }
+  - { id: n-url-known-shortener-2, rule_ids: [url-known-shortener], text: "check https://docs.rs/page" }
+  - { id: n-url-suspicious-tld-1, rule_ids: [url-suspicious-tld], text: "visit https://example.com/page" }
+  - { id: n-url-suspicious-tld-2, rule_ids: [url-suspicious-tld], text: "check https://docs.rs/page" }
+  - { id: n-url-excessive-subdomains-1, rule_ids: [url-excessive-subdomains], text: "visit https://example.com/page" }
+  - { id: n-url-excessive-subdomains-2, rule_ids: [url-excessive-subdomains], text: "check https://api.service.io/page" }
+  - { id: n-url-homoglyph-domain-1, rule_ids: [url-homoglyph-domain], text: "visit https://example.com/page" }
+  - { id: n-url-homoglyph-domain-2, rule_ids: [url-homoglyph-domain], text: "check https://mycompany.com/page" }
+  - { id: n-url-typosquat-domain-1, rule_ids: [url-typosquat-domain], text: "visit https://distinctlyunrelateddomain.com/page" }
+  - { id: n-url-typosquat-domain-2, rule_ids: [url-typosquat-domain], text: "check https://another-safe-site.org/page" }
+
+general_benign:
+  - { id: gb-1, text: "see https://docs.rs/regex/latest/regex/ for the crate docs" }
+  - { id: gb-2, text: "check out https://github.com/rust-lang/rust for the source" }
+  - { id: gb-3, text: "read more at https://en.wikipedia.org/wiki/Rust_(programming_language)" }
+  - { id: gb-4, text: "the answer is on https://stackoverflow.com/questions/12345" }
+  - { id: gb-5, text: "install it from https://www.npmjs.com/package/example" }
+  - { id: gb-6, text: "the paper is at https://arxiv.org/abs/1234.56789" }

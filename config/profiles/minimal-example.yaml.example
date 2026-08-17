@@ -1,0 +1,54 @@
+# Example named profile — copy this to `minimal.yaml` (drop the
+# `.example` suffix) inside `config/profiles/` to activate it. Files ending
+# in anything other than `.yaml`/`.yml` are skipped by `profiles::load`, so
+# this file ships inert: it demonstrates the shape without changing any
+# deployment's behavior until you opt in.
+#
+# Shape is identical to `config/policies.yaml` (both are
+# `armor_core::policy::schema::PolicyConfig`) — the only thing that matters
+# for profile resolution is `id`, which `config/applications.yaml` entries
+# reference via `profile_id`. See `docs/AIDR_IMPLEMENTATION.md`'s "Profile
+# Resolution" section and `crates/api/src/profiles.rs`'s module doc.
+#
+# This particular example is deliberately lighter than the shipped default
+# profile (`config/policies.yaml`'s 30+ checks) — a low-latency profile for
+# an application that only needs PCI/secrets/prompt-injection coverage, not
+# the full default set.
+id: minimal
+execution_mode: parallel
+fail_mode: fail_open
+normalize:
+  unicode_nfkc: true
+  strip_invisible: true
+  deleet: false
+  html_entities: true
+  rot13: false
+  base64: false
+checks:
+  - category: pci
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      credit_card: true
+      luhn_required: true
+  - category: secrets
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      aws: true
+      github: true
+      stripe: true
+      generic_api: true
+      jwt: true
+      private_key: true
+  - category: prompt_injection
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true

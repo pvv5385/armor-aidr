@@ -1,0 +1,50 @@
+[package]
+name = "armor-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Postgres-backed session/audit/vault storage for Armor."
+
+[dependencies]
+armor-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+# Runtime (not compile-time-checked) query API only — `query!`/`query_as!`
+# need a live DB or an `.sqlx` offline cache at build time, which this repo
+# doesn't assume every dev/CI environment has. `#[derive(sqlx::FromRow)]`
+# (the `macros` feature) has no such requirement.
+sqlx = { version = "0.9", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+    "uuid",
+    "json",
+    "chrono",
+] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+tokio = { version = "1", features = ["rt", "sync"] }
+# Vault encryption (`src/vault.rs`). AES-256-GCM for the stored value and
+# HMAC-SHA256 for the blind index — both from the RustCrypto set, which is
+# pure Rust with no OpenSSL/ring build dependency, keeping the "one static
+# binary" property the Dockerfile and edge deployments rely on.
+aes-gcm = "0.10"
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+# The vault key is a secret held in process memory for the lifetime of the
+# service; `zeroize` wipes it on drop rather than leaving it in a freed
+# allocation for a core dump or a heap scrape to find.
+zeroize = "1"
+
+[lib]
+name = "armor_storage"
+path = "src/lib.rs"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }

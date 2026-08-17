@@ -1,0 +1,48 @@
+name: Detector false positive
+description: A rule fires on legitimate text
+labels: ["false-positive", "rules"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        False positives are one of the most useful things you can report. A
+        rule that fires on ordinary text trains operators to switch the whole
+        category off, which costs more coverage than the rule ever provided.
+
+  - type: input
+    id: category
+    attributes:
+      label: Detector category
+      description: e.g. `jailbreak`, `pii`, `secrets`
+    validations:
+      required: true
+
+  - type: input
+    id: rule-id
+    attributes:
+      label: Rule ID
+      description: >
+        From the `rule_id` field in the response's `hits`. Leave blank if you
+        do not have it.
+
+  - type: textarea
+    id: text
+    attributes:
+      label: Text that fired
+      description: >
+        The legitimate input that was flagged. Redact anything genuinely
+        sensitive — a structurally equivalent substitute is fine.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Why this is legitimate
+      description: >
+        What the text actually is, and roughly how often you see this shape.
+        A rule that misfires once a month and one that misfires on every
+        request get triaged very differently.
+    validations:
+      required: true

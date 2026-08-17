@@ -1,0 +1,175 @@
+# Copyright benchmark corpus v1.
+# Word-shingle similarity evaluated against caller-supplied
+# `protected_passages` (pattern set is per-deployment). See
+# crates/core/tests/copyright_benchmark.rs for implementation details.
+
+dataset_name: copyright-v1
+version: 2
+created: 2026-07-30
+
+fixture_passage: &fixture_passage >
+  the annual shareholder meeting will be held next quarter to review
+  financial performance and strategic initiatives across all business units
+
+fixture_passage_2: &fixture_passage_2 >
+  engineering leadership approved the migration plan after completing
+  the final security review and operational readiness assessment
+
+positive_samples:
+
+  - id: exact-match
+    text: *fixture_passage
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: whitespace-normalization
+    text: "the   annual shareholder meeting will be held next quarter to review financial performance and strategic initiatives across all business units"
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: punctuation-normalization
+    text: "The annual shareholder meeting will be held next quarter, to review financial performance and strategic initiatives across all business units."
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: capitalization-only
+    text: "THE ANNUAL SHAREHOLDER MEETING WILL BE HELD NEXT QUARTER TO REVIEW FINANCIAL PERFORMANCE AND STRATEGIC INITIATIVES ACROSS ALL BUSINESS UNITS"
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: one-word-substitution
+    text: >
+      the annual shareholder meeting will be held next quarter to review
+      financial performance and strategic initiatives across most business units
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: inserted-words
+    text: >
+      the annual shareholder meeting will be held next quarter to carefully
+      review financial performance and strategic initiatives across all
+      business units
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: one-word-deletion
+    text: >
+      the annual shareholder meeting will be held next quarter to review
+      financial performance and initiatives across all business units
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: ocr-errors
+    text: >
+      the annuaI sharehoIder meeting wiII be heId next quarter to review
+      financiaI performance and strategic initiatives across aII business units
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: unicode-normalization
+    text: >
+      the annual shareholder meeting will be held next quarter to review
+      financial performance and strategic initiatives across all business units
+    protected_passages:
+      - *fixture_passage
+    expect_rule: copyright-near-verbatim-match
+
+  - id: multiple-protected-passages
+    text: *fixture_passage_2
+    protected_passages:
+      - *fixture_passage
+      - *fixture_passage_2
+    expect_rule: copyright-near-verbatim-match
+
+negative_samples:
+
+  - id: unrelated
+    text: >
+      Rust is a systems programming language with strong compile-time
+      guarantees and memory safety.
+    protected_passages:
+      - *fixture_passage
+
+  - id: paraphrase-only
+    text: >
+      Investors will gather next quarter to discuss company results and future
+      plans across every department.
+    protected_passages:
+      - *fixture_passage
+
+  - id: reordered-sentence
+    text: >
+      Next quarter the company will review strategic initiatives and financial
+      performance during the annual shareholder meeting across all business units.
+    protected_passages:
+      - *fixture_passage
+
+  - id: vocabulary-overlap
+    text: >
+      Financial performance and business units are common topics during many
+      corporate meetings throughout the year.
+    protected_passages:
+      - *fixture_passage
+
+  - id: short-input
+    text: "too short"
+    protected_passages:
+      - *fixture_passage
+
+  - id: empty-input
+    text: ""
+
+  - id: no-protected-passages
+    text: *fixture_passage
+
+  - id: different-protected-passage
+    text: *fixture_passage
+    protected_passages:
+      - *fixture_passage_2
+
+boundary_cases:
+
+  - id: just-above-threshold
+    description: >
+      Constructed to be approximately 90-95% similar. Should match if the
+      threshold is 90%.
+
+  - id: just-below-threshold
+    description: >
+      Constructed to be approximately 85-89% similar. Should not match if the
+      threshold is 90%.
+
+general_benign:
+
+  - id: benign-email
+    text: "Help me draft an onboarding email for a new employee."
+    protected_passages:
+      - *fixture_passage
+
+  - id: benign-summary
+    text: "Summarize this quarterly earnings report."
+    protected_passages:
+      - *fixture_passage
+
+  - id: benign-blog
+    text: "Write a blog post announcing our new feature."
+    protected_passages:
+      - *fixture_passage
+
+  - id: benign-meeting
+    text: "Create an agenda for tomorrow's engineering sync."
+    protected_passages:
+      - *fixture_passage
+
+  - id: benign-marketing
+    text: "Suggest five marketing campaign ideas for small businesses."
+    protected_passages:
+      - *fixture_passage

@@ -1,0 +1,414 @@
+# Default policy — loaded by armor-api at startup (ARMOR_POLICY_PATH,
+# defaults to this file). One flat policy for now; tenant/app/env layering
+# is not yet implemented (armor-core::policy::resolver).
+#
+# Shape mirrors armor_core::policy::schema::PolicyConfig — see
+# crates/core/src/policy/schema.rs for every field's meaning and default.
+id: default
+execution_mode: parallel
+fail_mode: fail_open
+normalize:
+  unicode_nfkc: true
+  strip_invisible: true
+  deleet: false
+  html_entities: true
+  homoglyph: true
+  collapse_spacing: false
+  rot13: false
+  base64: false
+checks:
+  - category: pci
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      credit_card: true
+      luhn_required: true
+  - category: secrets
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      aws: true
+      github: true
+      stripe: true
+      generic_api: true
+      jwt: true
+      private_key: true
+  - category: prompt_injection
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: false
+    backends:
+      local_ml:
+        task: prompt_injection
+  # mode: warn, not block — the ruleset (persona/framing/ethics-bypass
+  # jailbreak patterns; see rules/jailbreak/rules.yaml's header) hasn't had
+  # a precision/recall eval pass yet, so it flags without denying until
+  # that's done.
+  - category: jailbreak
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  # mode: warn, not block — the ruleset (weapons/drugs/violence/csam
+  # content-topic patterns; see rules/harmful_content/rules.yaml's
+  # header) hasn't had a precision/recall eval pass yet, so it flags
+  # without denying until that's done.
+  - category: harmful_content
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: false
+    backends:
+      local_ml:
+        task: toxicity
+  - category: pii
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      email: true
+      phone: true
+      ssn: true
+      ip_address: false
+      iban: false
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: true
+    backends:
+      local_ml:
+        task: pii_ner
+  - category: malicious_url
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      ip_literal_host: true
+      punycode: true
+      credentials_in_url: true
+      shorteners: true
+  - category: structure_validation
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      require_valid_json: false
+      max_bytes: 262144
+      max_depth: 16
+  # keyword_blocklist and tool_allowlist are customer-configured allow/deny
+  # lists ('s "not done yet" items) — shipped disabled with empty
+  # lists by default so they're inert until a deployment supplies its own
+  # keywords/tool names, rather than silently doing nothing while `enabled:
+  # true` implies otherwise.
+  - category: keyword_blocklist
+    enabled: false
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      keywords: []
+      case_sensitive: false
+      whole_word: true
+  - category: tool_allowlist
+    enabled: false
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      field: tool
+      allow: []
+      deny: []
+  # Customer-supplied regex patterns — same idea as keyword_blocklist above,
+  # but real regex instead of literal substrings. Leave `patterns: []` here
+  # and populate it from config/custom_rules/custom_regex.yaml instead (see
+  # that directory's README) so pattern data lives outside this file and
+  # doesn't require a policy redeploy to change. `warn` by default: these
+  # patterns get none of the eval-harness vetting the shipped rulesets do —
+  # promote to `block` once you trust your own false-positive rate.
+  - category: custom_regex
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      patterns: []
+  # Newer rule/pattern/dictionary categories — shipped `mode: warn`, same
+  # convention as jailbreak/harmful_content: no precision/recall eval pass
+  # yet.
+  - category: exfiltration
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: sensitive_business_data
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      allowlist: []
+  - category: code_safety
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: document_metadata_leakage
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+      invisible_text: true
+  - category: web_sanitization
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  # Customer-supplied competitor list, same shipped-disabled convention as
+  # keyword_blocklist/tool_allowlist above — inert until a deployment
+  # supplies its own names.
+  - category: competitor
+    enabled: true
+    mode: monitor
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      competitors: []
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: false
+    backends:
+      local_ml:
+        task: topic_intent
+  - category: retrieval_chunk_injection
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+      # Padding/repetition/size-cap scan (context_bloat.rs) — catches a
+      # retrieved chunk shaped to evict the system prompt from context or
+      # exhaust the token budget. Numeric thresholds default in code
+      # (context_bloat_max_chars/min_chars/min_entropy/
+      # max_repetition_ratio/ngram_size/max_run_ratio) to the same values
+      # as NeMo Guardrails' context_bloat_detection; override per key here
+      # if a deployment needs different thresholds.
+      context_bloat: true
+  - category: tool_output_injection
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: mcp_manifest_scanner
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: memory_write_poisoning
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: excessive_agency
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: sentiment
+    enabled: true
+    mode: monitor
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  # Quality/eval signal, not a safety block () — never denies
+  # (see detectors/over_refusal.rs), so mode: monitor same as sentiment
+  # above. Useful as a tripwire when tuning other detectors' thresholds.
+  - category: over_refusal
+    enabled: true
+    mode: monitor
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: false
+    backends:
+      local_ml:
+        task: over_refusal
+  - category: gibberish
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      entropy: true
+      vowel_ratio: true
+      invisible_char_ratio: true
+  # numerical_consistency is pure computation (no deployment config
+  # needed), so it ships enabled like the other rules-only categories.
+  - category: numerical_consistency
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      arithmetic: true
+      percentage: true
+  # The remaining seven all need deployment-specific config
+  # (disclaimer_phrases / sources / protected_passages / system_prompts /
+  # session budgets / rate-limit windows) to do anything useful — shipped
+  # disabled, same convention as keyword_blocklist/custom_regex above.
+  - category: compliance
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+      disclaimer_phrases: []
+  - category: citation_integrity
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      sources: []
+  - category: hallucination
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      sources: []
+  - category: unbounded_consumption
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options: {}
+  - category: copyright
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      protected_passages: []
+  - category: system_prompt_leakage
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      system_prompts: []
+      # Opt-in only: a deployment must generate its own random tokens,
+      # embed them in the real system prompt it sends upstream, and list
+      # them here. Empty by default — never auto-enabled.
+      canary_words: []
+  # Per-session request-rate limiting (time-windowed) — distinct from
+  # unbounded_consumption's lifetime budget, see detectors/abuse.rs's
+  # module doc. Disabled by default: window_seconds has a default of 60s
+  # but max_requests_per_window is unlimited until a deployment sets one.
+  - category: abuse
+    enabled: false
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options: {}
+  # Content-safety taxonomy closeout (hate/self_harm/sexual_content/
+  # sex_crimes/defamation/elections) — same convention as harmful_content:
+  # newly authored pattern banks (rules/<category>/rules.yaml), no eval
+  # pass yet, shipped `mode: warn` pending one.
+  - category: hate
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: self_harm
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: sexual_content
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: sex_crimes
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: defamation
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: elections
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true

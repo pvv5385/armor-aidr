@@ -1,0 +1,20 @@
+# Structure-validation benchmark corpus v1.
+# Config-driven shape checks (invalid JSON, excessive nesting, oversized
+# payloads). See crates/core/tests/structure_validation_benchmark.rs.
+
+dataset_name: structure-validation-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-invalid-json, text: "this is not valid json at all" }
+  - { id: pos-excessive-nesting, text: "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":1}}}}}" }
+  - { id: pos-oversized, text: "{\"padding\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}" }
+
+negative_samples:
+  - { id: neg-valid-shallow-json, text: "{\"tool\":\"search\",\"args\":{\"q\":\"rust\"}}" }
+  - { id: neg-empty, text: "" }
+
+general_benign:
+  - { id: gb-1, text: "{\"status\":\"ok\"}" }
+  - { id: gb-2, text: "{\"user\":{\"id\":1,\"name\":\"Jane\"}}" }

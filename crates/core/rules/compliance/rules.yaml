@@ -1,0 +1,20 @@
+# Compliance advice-trigger pattern bank — narrow phrase-level patterns for
+# medical/financial/legal advice-shaped output, each mapped to the vertical
+# whose disclosure rules it implicates. Matched against `options`-supplied
+# `disclaimer_phrases` in `crates/core/src/detectors/compliance.rs` — a
+# trigger firing without a configured disclaimer present in the same text
+# is the actual violation, not the trigger match alone.
+#
+# Own pattern set, not ported from any third party.
+- id: medical-advice-trigger
+  description: Direct recommendation to take a specific medication
+  category: medical
+  regex: '(?i)\b(?:you\s+should\s+take|I\s+recommend\s+taking)\s+(?:this\s+)?medication\b'
+- id: financial-advice-trigger
+  description: Direct investment recommendation
+  category: financial
+  regex: '(?i)\byou\s+should\s+invest\s+in\b'
+- id: legal-advice-trigger
+  description: Direct legal recommendation or stated legal opinion
+  category: legal
+  regex: '(?i)\b(?:my\s+legal\s+opinion\s+is|you\s+should\s+(?:sue|file\s+a\s+lawsuit))\b'

@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package armor.inference.v1;
+
+import "google/protobuf/struct.proto";
+
+// Armor <-> its own open-source `armor-inference` pool.
+//
+// This is the wire shape of the confidence contract, kept in lockstep with
+// `crates/inference-client/src/contract.rs` — the Rust types are what
+// actually ship (HTTP/JSON first), and this file exists so a gRPC transport
+// can be swapped in behind `InferenceTransport` later without the two
+// contracts having drifted in the meantime. Not yet wired into a
+// `tonic`/`prost` build.
+//
+// There is no separate "Brain" service: the generative judge is just the
+// `judge` task inside `armor-inference`, reached through the same `Infer`
+// RPC with `task = "judge"` — a routing property of that task, not a
+// service boundary.
+
+service InferenceService {
+  // Score one request against a task. Mirrors `POST /v1/infer/{task}` on the
+  // HTTP transport and `InferenceTransport::infer` in Rust. The caller's
+  // deadline is authoritative; the sidecar's batcher may coalesce concurrent
+  // calls for the same task.
+  rpc Infer(InferRequest) returns (InferResult);
+
+  // Which tasks this pool can actually serve right now. Mirrors
+  // `GET /v1/models` and `InferenceTransport::models`.
+  rpc Models(ModelsRequest) returns (ModelsResponse);
+}
+
+message InferRequest {
+  // Registry task name, e.g. "prompt_injection", "ner", "judge".
+  string task = 1;
+
+  // Exactly one of `text` / `texts` is set. `texts` is the batch form.
+  optional string text = 2;
+  repeated string texts = 3;
+
+  // Pin a specific artifact; empty means the task's configured default.
+  optional string model_id = 4;
+  optional string revision = 5;
+
+  // Task-specific parameters, opaque to the transport.
+  optional google.protobuf.Struct params = 6;
+}
+
+enum MlDecision {
+  // proto3 requires a zero value; the sidecar never actually emits this —
+  // every real response sets one of the four below.
+  ML_DECISION_UNSPECIFIED = 0;
+  ALLOW = 1;
+  WARN = 2;
+  BLOCK = 3;
+  REDACT = 4;
+}
+
+message InferResult {
+  MlDecision decision = 1;
+
+  // 0..=100. An ordinal routing signal, never a calibrated probability.
+  // Saturated rather than rejected on the receiving end: an out-of-range
+  // value from a misbehaving sidecar should still route sensibly.
+  uint32 risk_score = 2;
+
+  // [0, 1], clamped on parse. Absent means the model abstained, which
+  // escalates toward the stronger layer rather than resolving here.
+  optional float confidence = 3;
+
+  map<string, float> label_scores = 4;
+
+  // Deliberately distinct from `confidence`: `calibrated_score` is what the
+  // scorecard gate measures against a benchmark suite, while `confidence`
+  // is the raw head output. Collapsing them loses the only signal that says
+  // whether a threshold means anything.
+  optional float calibrated_score = 5;
+
+  optional float threshold = 6;
+
+  // "model_id@revision" — recorded on the outcome so an audit row can be
+  // tied back to the exact artifact that produced it.
+  string model_version = 7;
+}
+
+message ModelsRequest {}
+
+message ModelsResponse {
+  repeated ModelInfo models = 1;
+}
+
+message ModelInfo {
+  string task = 1;
+  string model_version = 2;
+  string runner = 3;
+
+  // False when the artifact is missing or its sha256 did not match: the
+  // task fails closed while the service itself stays up.
+  bool available = 4;
+
+  optional string model_id = 5;
+  optional string revision = 6;
+  optional string sha256 = 7;
+  optional string detail = 8;
+  bool active = 9;
+}

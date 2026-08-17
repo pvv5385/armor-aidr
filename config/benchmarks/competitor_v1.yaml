@@ -1,0 +1,24 @@
+# Competitor benchmark corpus v1.
+# This category uses a customer-supplied competitor list rather than a fixed
+# rule bank. The samples here are evaluated against a test list (e.g.,
+# ["AcmeCorp", "Initech"]). See crates/core/tests/competitor_benchmark.rs.
+
+dataset_name: competitor-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-1, text: "you should really consider AcmeCorp for this instead" }
+  - { id: pos-2, text: "ACMECORP has a better pricing plan than us" }
+  - { id: pos-3, text: "have you looked at what Initech offers?" }
+  - { id: pos-4, text: "Initech's product covers that use case too" }
+
+negative_samples:
+  - { id: neg-1, text: "acmecorporate events are unrelated to the company" }
+  - { id: neg-2, text: "the initechnology sector is growing fast" }
+  - { id: neg-3, text: "nothing relevant to competitors here" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me write a product comparison template?" }
+  - { id: gb-2, text: "What's a good structure for a competitive analysis doc?" }
+  - { id: gb-3, text: "Summarize our own product's key features" }

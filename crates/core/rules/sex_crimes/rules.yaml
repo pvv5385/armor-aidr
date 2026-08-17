@@ -1,0 +1,32 @@
+# Sex-crimes ruleset — requests for instructions/facilitation of sexual
+# assault, drug-facilitated assault, or sex trafficking, involving adults.
+# Distinct from rules/harmful_content/rules.yaml's `csam` sub-category
+# (minor-directed, owned there) — this ruleset never adds minor terms, so
+# the two stay non-overlapping by construction, same convention as
+# rules/sexual_content/rules.yaml.
+#
+# Newly authored for this repo (see rules/hate/rules.yaml's header for the
+# general provenance note — not a verbatim port of any third-party pattern
+# bank; those rely on lookahead assertions Rust's `regex` crate doesn't
+# support). All hits ship Severity::Critical. Shipped `mode: warn` in
+# config/policies.yaml pending an eval pass.
+- id: sexual-assault-howto-request
+  description: Asks how to sexually assault someone
+  category: sex_crimes
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:rape|sexually\s+assault)\s+(?:someone|a\s+woman|a\s+person|a\s+girl)\b'
+- id: drug-facilitated-assault-request
+  description: Asks how to drug someone to sexually assault them
+  category: sex_crimes
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:drug|spike\s+the\s+drink\s+of)\s+someone\s+(?:to\s+have\s+sex\s+with\s+them|without\s+their\s+consent|so\s+they\s+pass\s+out)\b'
+- id: sex-trafficking-howto-request
+  description: Asks how to traffic people for sex/prostitution
+  category: sex_crimes
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:traffic|smuggle|sell)\s+(?:women|girls|people)\s+for\s+(?:sex|prostitution)\b'
+- id: assault-evasion-request
+  description: Asks how to get away with rape or sexual assault
+  category: sex_crimes
+  regex: '(?i)\bhow\s+(?:can\s+i|do\s+i)\s+get\s+away\s+with\s+(?:rape|sexual\s+assault)\b'
+- id: non-consensual-content-request
+  description: Requests graphic detailed content depicting a non-consensual sexual assault
+  category: sex_crimes
+  regex: '(?i)\bwrite\s+(?:a\s+)?(?:story|scene)\s+(?:where|about|in\s+which)\s+(?:a\s+character|someone)\s+is\s+(?:raped|sexually\s+assaulted)\s+in\s+(?:graphic\s+)?detail\b'

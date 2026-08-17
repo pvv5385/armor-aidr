@@ -1,0 +1,31 @@
+# Shared injection-marker pattern bank — fake role/system delimiters and
+# "new instructions" hand-offs smuggled into content the caller expects to
+# be *data*, not instructions: a RAG chunk, a tool result, or an MCP
+# manifest's name/description/permissions fields. Shared by
+# `retrieval_chunk_injection`, `tool_output_injection`, and
+# `mcp_manifest_scanner` — the same injection-marker bank all three use —
+# rather than each detector maintaining its own copy.
+#
+# Distinct from `prompt_injection/` (instruction-override phrasing typed
+# directly by a user) and `exfiltration/` (requests to reveal internals):
+# this bank matches the *delimiter-forgery* shape specifically — content
+# that impersonates a system/role boundary or announces itself as a fresh
+# instruction set.
+#
+# Own pattern set, not ported from any third party.
+- id: fake-system-tag
+  description: Forged system/role delimiter tag
+  category: delimiter_forgery
+  regex: '(?i)(?:<\|system\|>|\[system(?:\s+message)?\]|###\s*system\s*###)'
+- id: fake-instruction-marker
+  description: Content announces itself as a fresh instruction set
+  category: instruction_handoff
+  regex: '(?i)\bnew\s+instructions?\s*:\s*\S'
+- id: role-delimiter-injection
+  description: Forged assistant/ai turn telling the model to ignore something
+  category: delimiter_forgery
+  regex: '(?i)\b(?:assistant|ai)\s*:\s*(?:ignore|disregard|forget)\b'
+- id: end-of-context-override
+  description: Announces the end of retrieved content then issues an override
+  category: instruction_handoff
+  regex: '(?i)\bend\s+of\s+(?:document|context|retrieved\s+content)\b[\s\S]{0,40}\b(?:now\s+)?(?:ignore|disregard|forget)\b'

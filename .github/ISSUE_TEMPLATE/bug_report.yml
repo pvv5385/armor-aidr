@@ -1,0 +1,72 @@
+name: Bug report
+description: Something behaves differently than documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not report security vulnerabilities here.** See
+        [SECURITY.md](../blob/main/SECURITY.md) for the private reporting
+        channel. Detector *bypasses* and detector *crashes* are security
+        reports; detector *false positives* belong here.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >
+        The smallest input and configuration that shows the problem. For a
+        detector issue, the exact input text is usually enough.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit this?
+      options:
+        - HTTP API (armor-api)
+        - armor-core used directly as a library
+        - A gateway integration (Portkey, LiteLLM)
+        - Docker image
+        - Building or testing the repository
+    validations:
+      required: true
+
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy configuration
+      description: >
+        The relevant part of your `config/policies.yaml`, and any non-default
+        `ARMOR_*` environment variables. Say "shipped default" if unchanged.
+      render: yaml
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, commit SHA, or container digest.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant log output. Please redact anything sensitive — and if the
+        logs contain evaluated content, tell us, because they are not
+        supposed to.
+      render: shell

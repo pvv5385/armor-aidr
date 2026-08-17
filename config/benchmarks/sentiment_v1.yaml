@@ -1,0 +1,35 @@
+# Sentiment/tone benchmark corpus v1 - labelled samples for every pattern
+# in rules/sentiment/rules.yaml. Same acceptance convention as
+# exfiltration_v1.yaml — see crates/core/tests/sentiment_benchmark.rs.
+
+dataset_name: sentiment-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: condescending-explanation-1, rule_id: condescending-explanation, text: "Let me explain this slowly for you since you clearly can't follow" }
+  - { id: condescending-explanation-2, rule_id: condescending-explanation, text: "let me explain this in simple terms since you struggle" }
+  - { id: condescending-obviously-1, rule_id: condescending-obviously, text: "Obviously you don't understand how this works" }
+  - { id: condescending-obviously-2, rule_id: condescending-obviously, text: "Clearly you do not understand the assignment" }
+  - { id: dismissive-not-my-problem-1, rule_id: dismissive-not-my-problem, text: "that's not my problem, figure it out yourself" }
+  - { id: dismissive-not-my-problem-2, rule_id: dismissive-not-my-problem, text: "honestly, that's not my problem to fix" }
+  - { id: sarcastic-praise-1, rule_id: sarcastic-praise, text: "Oh great, another brilliant idea from the team" }
+  - { id: sarcastic-praise-2, rule_id: sarcastic-praise, text: "Oh wonderful, another genius question from you" }
+
+negative_samples:
+  - { id: n-condescending-explanation-1, rule_ids: [condescending-explanation], text: "let me explain this concept step by step" }
+  - { id: n-condescending-explanation-2, rule_ids: [condescending-explanation], text: "let me explain the process in detail" }
+  - { id: n-condescending-obviously-1, rule_ids: [condescending-obviously], text: "obviously the weather affects everyone's mood" }
+  - { id: n-condescending-obviously-2, rule_ids: [condescending-obviously], text: "clearly the data shows an upward trend" }
+  - { id: n-dismissive-not-my-problem-1, rule_ids: [dismissive-not-my-problem], text: "that's a great problem to solve together" }
+  - { id: n-dismissive-not-my-problem-2, rule_ids: [dismissive-not-my-problem], text: "this isn't really my department but I'll help" }
+  - { id: n-sarcastic-praise-1, rule_ids: [sarcastic-praise], text: "oh great, the meeting starts in five minutes" }
+  - { id: n-sarcastic-praise-2, rule_ids: [sarcastic-praise], text: "what a wonderful day for a walk" }
+
+general_benign:
+  - { id: gb-1, text: "Let me walk you through the setup process step by step" }
+  - { id: gb-2, text: "Great question — here's how pagination works" }
+  - { id: gb-3, text: "I understand this can be confusing, let's break it down together" }
+  - { id: gb-4, text: "Thanks for flagging this, I'll take a look" }
+  - { id: gb-5, text: "That's a fair point, let me address it" }
+  - { id: gb-6, text: "Nice work on this draft, a few small suggestions below" }

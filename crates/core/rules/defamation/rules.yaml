@@ -1,0 +1,28 @@
+# Defamation ruleset — requests to generate false factual claims designed
+# to damage a real person's or business's reputation (fabricated
+# accusations, fake quotes, reputation-damage letters, fake reviews).
+#
+# Newly authored for this repo (see rules/hate/rules.yaml's header for the
+# general provenance note — not a verbatim port of any third-party pattern
+# bank). Severity::Medium — reputational, not physical-safety, harm. Shipped
+# `mode: warn` in config/policies.yaml pending an eval pass.
+- id: defamatory-article-request
+  description: Requests an article/post that falsely accuses someone of a crime
+  category: defamation
+  regex: '(?i)\bwrite\s+(?:an?\s+)?(?:article|post|blog\s+post)\s+(?:that|which)\s+falsely\s+(?:accuses|claims)\s+(?:someone|a\s+person|my\s+\w+)\s+of\s+(?:a\s+crime|committing\s+a\s+crime|something\s+illegal)\b'
+- id: fabricated-quote-request
+  description: Requests a fabricated quote attributed to a real person
+  category: defamation
+  regex: '(?i)\b(?:write|make\s+up|invent)\s+a\s+fake\s+quote\s+from\s+(?:a\s+)?(?:celebrity|politician|public\s+figure|my\s+\w+)\s+(?:saying|claiming)\b'
+- id: reputation-damage-letter-request
+  description: Requests a letter designed to defame or falsely accuse someone
+  category: defamation
+  regex: '(?i)\bwrite\s+(?:a\s+)?letter\s+(?:to\s+)?(?:defame|falsely\s+accuse|ruin\s+the\s+reputation\s+of)\s+(?:someone|my\s+\w+|a\s+\w+)\b'
+- id: fake-review-request
+  description: Requests a fake review with false claims that damage a reputation
+  category: defamation
+  regex: '(?i)\bwrite\s+a\s+fake\s+(?:review|testimonial)\s+(?:that|which)\s+(?:falsely\s+claims|makes\s+up\s+false\s+claims\s+about|damages\s+the\s+reputation\s+of)\s+(?:a\s+business|a\s+company|a\s+person|a\s+product)\b'
+- id: false-criminal-accusation-request
+  description: Asks for help falsely accusing a specific person of a crime that never happened
+  category: defamation
+  regex: '(?i)\bhelp\s+me\s+(?:falsely\s+)?accuse\s+(?:my\s+\w+|someone|a\s+coworker)\s+of\s+(?:a\s+crime|theft|assault|fraud)\s+(?:they\s+didn''t\s+commit|that\s+never\s+happened)\b'

@@ -1,0 +1,185 @@
+# Example named profile — copy this to `hipaa.yaml` (drop the `.example`
+# suffix) inside `config/profiles/` to activate it, then point an
+# `application_id` at it via `config/applications.yaml` (`profile_id:
+# hipaa`). Files ending in anything other than `.yaml`/`.yml` are skipped by
+# `profiles::load`, so this file ships inert until you opt in — see
+# `crates/api/src/profiles.rs`'s module doc and `minimal-example.yaml.example`
+# for the mechanics.
+#
+# This is a vertical preset for a healthcare/HIPAA deployment: same
+# `armor_core::policy::schema::PolicyConfig` shape as `config/policies.yaml`,
+# retuned so PHI (the 18 HIPAA Safe Harbor identifiers) is the primary
+# thing this policy exists to catch, rather than one option among many on
+# a generic `pii` check. Two changes from the shipped default are worth
+# calling out:
+#
+#   1. `pii`'s `on_fail` is `redact`, not `deny`. A clinical workflow
+#      usually wants PHI stripped from the text that reaches a model/log
+#      (de-identify-and-continue), not the whole request rejected — the
+#      caller substitutes `redacted_text` (`crate::engine::redact`) rather
+#      than branching on which category hit.
+#   2. `pii`'s `fail_mode` is `fail_closed`, overriding the policy-wide
+#      `fail_open` default. Fail-open is the right default for most checks
+#      (an availability incident shouldn't become a hard outage), but for
+#      the one check standing between PHI and an uncovered downstream
+#      model, a detector timeout/error should deny rather than silently
+#      let unredacted PHI through.
+#
+# Every other category here keeps the shipped default's `mode`/`on_fail` —
+# in particular the `warn`-not-`block` categories (jailbreak,
+# harmful_content, exfiltration, document_metadata_leakage, ...) stay
+# `warn` for the same reason `config/policies.yaml` gives: those rulesets
+# haven't had a precision/recall eval pass yet, and a vertical pack
+# shouldn't promote a category to enforcing before that's done.
+id: hipaa
+execution_mode: parallel
+fail_mode: fail_open
+normalize:
+  unicode_nfkc: true
+  strip_invisible: true
+  deleet: false
+  html_entities: true
+  homoglyph: true
+  collapse_spacing: false
+  rot13: false
+  base64: false
+checks:
+  # PHI / the 18 HIPAA Safe Harbor identifiers. `email`/`phone`/`ssn` are
+  # the shipped default's baseline; the rest (medical_record,
+  # health_insurance_id, date_of_birth, national_id, drivers_license,
+  # passport, bank_account, vin, gps_coordinates, imei, mac_address) are
+  # off by default in `config/policies.yaml` and are exactly what turns a
+  # generic PII check into a HIPAA one — medical record numbers and health
+  # plan beneficiary numbers are the two identifiers no non-healthcare
+  # deployment needs. `ip_address` stays on: full IP addresses are Safe
+  # Harbor identifier #14.
+  - category: pii
+    enabled: true
+    mode: block
+    on_fail: redact
+    fail_mode: fail_closed
+    options:
+      email: true
+      phone: true
+      ssn: true
+      ip_address: true
+      iban: false
+      medical_record: true
+      health_insurance_id: true
+      date_of_birth: true
+      national_id: true
+      drivers_license: true
+      passport: true
+      bank_account: true
+      vin: true
+      gps_coordinates: true
+      imei: true
+      mac_address: true
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: true
+    backends:
+      local_ml:
+        task: pii_ner
+  # Baseline hygiene, unchanged from the default profile — a HIPAA
+  # deployment still needs secrets/PCI/prompt-injection/malicious-URL
+  # coverage, it's just not the differentiator for this pack.
+  - category: secrets
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      aws: true
+      github: true
+      stripe: true
+      generic_api: true
+      jwt: true
+      private_key: true
+  - category: pci
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      credit_card: true
+      luhn_required: true
+  - category: prompt_injection
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+    strategy:
+      order: [local_deterministic, local_ml]
+      escalate_when:
+        deterministic_score_between: [0, 70]
+      fallback: fallback_to_deterministic
+      additive: false
+    backends:
+      local_ml:
+        task: prompt_injection
+  - category: malicious_url
+    enabled: true
+    mode: block
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      ip_literal_host: true
+      punycode: true
+      credentials_in_url: true
+      shorteners: true
+  # Documents in a clinical workflow (discharge summaries, exported notes,
+  # PDFs) are exactly where embedded metadata/invisible text tends to leak
+  # PHI that the visible text was already redacted of — kept `warn` per the
+  # no-eval-pass-yet convention above, but worth having on even at `warn`
+  # for this vertical specifically.
+  - category: document_metadata_leakage
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+      invisible_text: true
+  - category: exfiltration
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: jailbreak
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+  - category: structure_validation
+    enabled: true
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      require_valid_json: false
+      max_bytes: 262144
+      max_depth: 16
+  # HIPAA disclaimer/minimum-necessary-language check — shipped disabled in
+  # the default profile because it needs deployment-specific
+  # `disclaimer_phrases`; left disabled here too rather than guessing at a
+  # covered entity's actual required phrasing. Populate and flip to
+  # `enabled: true` once you know what your BAA/compliance team requires
+  # this to check for.
+  - category: compliance
+    enabled: false
+    mode: warn
+    on_fail: deny
+    fail_mode: fail_open
+    options:
+      pattern_match: true
+      disclaimer_phrases: []

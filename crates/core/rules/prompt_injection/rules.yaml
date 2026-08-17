@@ -1,0 +1,144 @@
+# Curated pattern-based prompt-injection ruleset. Carried over from this
+# org's own backend/app/guardrails/rulesets/prompt_injection/rules.py and
+# rewritten to this repository's schema and regex dialect (single leading
+# `(?i)`, no lookaround or backreferences).
+#
+# The attack *concepts* covered here — instruction override, developer-mode
+# framing, system-prompt replacement, prompt extraction — are the ones
+# described in the OWASP LLM Prompt Injection Prevention Cheat Sheet and
+# OpenRouter's public documentation. Those sources describe attack shapes in
+# prose; the regexes below are this repository's own expression of them, not
+# copied pattern text.
+#
+# Runs as a cheap deterministic pass ahead of the classifier tier
+# (armor-inference) — a known jailbreak phrasing denies in
+# sub-millisecond regex time without paying any model cost. Defense in
+# depth, not a replacement: the classifier still catches paraphrased/novel
+# attacks these literal patterns miss.
+#
+# Deliberately no allowlist/stopwords (unlike rules/secrets/) — phrases like
+# "ignore previous instructions" don't show up incidentally in legitimate
+# text the way "example"/"placeholder" show up near real secrets.
+- id: ignore-previous-instructions
+  description: Attempt to override prior instructions
+  category: instruction_override
+  regex: '(?i)\b(?:ignore|disregard|forget)\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above|preceding)\s+(?:instructions?|prompts?|rules?|context)\b'
+- id: disregard-the-above
+  description: Attempt to override prior instructions
+  category: instruction_override
+  regex: '(?i)\bdisregard\s+(?:everything|all)\s+(?:above|before)\b'
+- id: new-instructions-override
+  description: Claims new instructions supersede prior ones
+  category: instruction_override
+  regex: '(?i)\b(?:from\s+now\s+on|starting\s+now)[,\s]+(?:you\s+(?:will|must|should)|ignore)\b'
+- id: developer-mode
+  description: Developer/debug mode jailbreak activation
+  category: developer_mode
+  regex: '(?i)\b(?:enable|enter|activate)\s+(?:developer|debug|god|admin)\s+mode\b'
+- id: dan-jailbreak
+  description: DAN-style jailbreak persona
+  category: developer_mode
+  regex: '(?i)\bDAN\b.{0,30}\b(?:do\s+anything\s+now|jailbreak)\b|\bdo\s+anything\s+now\b'
+- id: no-restrictions-mode
+  description: Claims to remove model restrictions
+  category: developer_mode
+  regex: '(?i)\byou\s+(?:are\s+)?(?:now\s+)?(?:free|unrestricted|unfiltered|unlocked)\s+(?:from|of)\s+(?:all\s+)?(?:your\s+)?(?:previous\s+)?(?:restrictions?|guidelines?|rules?)\b'
+- id: new-system-prompt
+  description: Attempt to inject a replacement system prompt
+  category: system_override
+  regex: '(?i)\b(?:new|updated|real)\s+system\s+prompt\s*[:=]'
+- id: you-are-now-persona
+  description: Attempt to reassign the assistant's persona/role
+  category: system_override
+  regex: '(?i)\byou\s+are\s+now\s+(?:a|an)\b.{0,60}\b(?:with\s+no|without\s+any)\b'
+- id: act-as-if-no-rules
+  description: Attempt to reassign behavior via a hypothetical framing
+  category: system_override
+  regex: '(?i)\bact\s+as\s+if\s+you\s+(?:have\s+no|had\s+no|are\s+not\s+bound\s+by)\b'
+- id: repeat-system-prompt
+  description: Attempt to exfiltrate the system prompt
+  category: prompt_extraction
+  regex: '(?i)\b(?:repeat|print|show|reveal|output|display)\s+(?:me\s+)?(?:your|the)\s+(?:system\s+prompt|initial\s+instructions?|hidden\s+instructions?)\b'
+- id: what-are-your-instructions
+  description: Attempt to elicit the system prompt verbatim
+  category: prompt_extraction
+  regex: '(?i)\bwhat\s+(?:are|were)\s+your\s+(?:exact\s+)?(?:original\s+)?instructions\b'
+- id: you-are-no-longer
+  description: Attempt to strip the assistant's assigned role
+  category: role_manipulation
+  regex: '(?i)\byou\s+are\s+no\s+longer\s+(?:an?\s+)?(?:ai|assistant|bound\s+by)\b'
+- id: pretend-you-are
+  description: Roleplay framing used to bypass instructions
+  category: role_manipulation
+  regex: '(?i)\bpretend\s+(?:that\s+)?you\s+(?:are|have)\s+no\b'
+- id: without-any-restrictions
+  description: Explicit request to bypass safety constraints
+  category: safety_bypass
+  regex: '(?i)\bwithout\s+any\s+(?:restrictions?|limitations?|ethical\s+guidelines?|filters?)\b'
+- id: no-ethical-guidelines
+  description: Explicit request to bypass ethical guidelines
+  category: safety_bypass
+  regex: '(?i)\b(?:no|zero)\s+ethical\s+(?:guidelines?|constraints?|considerations?)\b'
+- id: fake-system-tag
+  description: Fake system/instruction turn-marker tag
+  category: tag_injection
+  regex: '(?i)</?(?:system|instructions?)>'
+- id: fake-inst-tag
+  description: Fake [INST] turn-marker tag
+  category: tag_injection
+  regex: '\[/?INST\]'
+- id: fake-chatml-tag
+  description: Fake ChatML turn-marker token
+  category: tag_injection
+  regex: '<\|im_(?:start|end)\|>'
+- id: raw-control-token
+  description: Raw model control/special token injection
+  category: control_token_injection
+  regex: '<\|(?:endoftext|end_of_text|eot_id|start_header_id|end_header_id)\|>'
+
+# This block fills categories the set above didn't: negative-phrasing
+# instruction overrides, persistent role reassignment, forged chat-role
+# turns embedded mid-text, and third-person embedded directives aimed at
+# the model rather than the user (the indirect/RAG-injection shape, not
+# just direct-prompt jailbreak phrasing). Regexes follow this ruleset's own
+# style (single `(?i)` per rule, this codebase's category taxonomy).
+- id: dont-follow-previous-instructions
+  description: Negative-phrasing instruction override ("don't follow the previous instructions")
+  category: instruction_override
+  regex: '(?i)\b(?:don''t|do\s+not|never)\s+(?:obey|follow|heed)\s+(?:any\s+|the\s+|your\s+)?(?:prior|earlier|previous|above|system)\s+(?:rules?|prompts?|instructions?)\b'
+- id: these-instructions-supersede
+  description: Claims new instructions supersede/override prior ones
+  category: instruction_override
+  regex: '(?i)\b(?:these|the\s+following)\s+(?:new\s+)?instructions?\s+(?:take\s+precedence|supersede|override|replace)\b'
+- id: role-switch-persistent
+  description: Persistent role reassignment framing ("from now on ... you")
+  category: role_manipulation
+  regex: '(?i)\b(?:henceforth|starting\s+(?:now|today)|from\s+(?:now|this\s+point)\s+on)\b[^.]{0,50}\byou\b'
+- id: role-reassignment
+  description: Explicit role/task/purpose reassignment
+  category: role_manipulation
+  regex: '(?i)\byour\s+(?:new\s+|updated\s+)?(?:purpose|role|task|job|directive)\s+(?:now\s+)?is\b'
+- id: forged-role-turn
+  description: Forged system/assistant/developer chat-role turn marker embedded mid-text
+  category: tag_injection
+  regex: '(?i)(?:^|\n|[\s"''>\)\]])\s*(?:developer|system|assistant)\s*[:>]\s'
+- id: embedded-model-directive
+  description: Third-person directive aimed at the model rather than the user (indirect/RAG-injection shape)
+  category: embedded_directive
+  regex: '(?i)\bthe\s+(?:bot|llm|model|ai|assistant)\s+(?:has\s+to|needs?\s+to|will|should|must)\b'
+- id: embedded-output-directive
+  description: Instructs the model to include/output specific content when it responds
+  category: embedded_directive
+  regex: '(?i)\bwhen\s+(?:you\s+)?(?:summari[sz]e|reply|respond|answer)[^.]{0,50}\b(?:reveal|output|say|append|add|include)\b'
+- id: boundary-markdown-header
+  description: Markdown header used to forge a new system/instruction section
+  category: tag_injection
+  regex: '(?im)^#{3,}\s*(?:new\s+prompt|instruction|system)'
+- id: boundary-sys-tag
+  description: Bracketed [SYS]/[SYSTEM] boundary tag beyond the existing [INST] check
+  category: tag_injection
+  regex: '\[/?(?:SYSTEM|SYS)\]'
+- id: boundary-chatml-role-token
+  description: ChatML role token beyond im_start/im_end (system/user/assistant impersonation)
+  category: tag_injection
+  regex: '<\|(?:assistant|user|system)\|>'

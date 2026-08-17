@@ -1,0 +1,42 @@
+# Sensitive-business-data benchmark corpus v1.
+# Labelled samples cover the patterns defined in
+# rules/sensitive_business_data/rules.yaml. See
+# crates/core/tests/sensitive_business_data_benchmark.rs for details.
+
+dataset_name: sensitive-business-data-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: mna-leak-1, rule_id: mna-leak, text: "we're in confidential merger talks with a competitor" }
+  - { id: mna-leak-2, rule_id: mna-leak, text: "there's an unannounced acquisition being planned" }
+  - { id: pricing-leak-1, rule_id: pricing-leak, text: "attached is our internal pricing sheet for enterprise deals" }
+  - { id: pricing-leak-2, rule_id: pricing-leak, text: "here's the confidential pricing list for resellers" }
+  - { id: roadmap-leak-1, rule_id: roadmap-leak, text: "this is our unreleased product roadmap for next year" }
+  - { id: roadmap-leak-2, rule_id: roadmap-leak, text: "don't share the internal roadmap outside the team" }
+  - { id: customer-list-leak-1, rule_id: customer-list-leak, text: "I need the customer list export from last quarter" }
+  - { id: customer-list-leak-2, rule_id: customer-list-leak, text: "can you send the customer list dump to sales" }
+  - { id: financials-leak-1, rule_id: financials-leak, text: "these are our confidential financials for board review" }
+  - { id: financials-leak-2, rule_id: financials-leak, text: "the internal financial statements haven't been published yet" }
+
+negative_samples:
+  - { id: n-mna-leak-1, rule_ids: [mna-leak], text: "we discussed merger trends in the tech industry" }
+  - { id: n-mna-leak-2, rule_ids: [mna-leak], text: "the acquisition of new customers grew 20% this quarter" }
+  - { id: n-pricing-leak-1, rule_ids: [pricing-leak], text: "our pricing page lists three public tiers" }
+  - { id: n-pricing-leak-2, rule_ids: [pricing-leak], text: "check the public pricing list on our website" }
+  - { id: n-roadmap-leak-1, rule_ids: [roadmap-leak], text: "our public roadmap is available on the website" }
+  - { id: n-roadmap-leak-2, rule_ids: [roadmap-leak], text: "the city released its road maintenance plan" }
+  - { id: n-customer-list-leak-1, rule_ids: [customer-list-leak], text: "I updated the customer contact list yesterday" }
+  - { id: n-customer-list-leak-2, rule_ids: [customer-list-leak], text: "please export the sales list to CSV" }
+  - { id: n-financials-leak-1, rule_ids: [financials-leak], text: "our public financials are posted quarterly" }
+  - { id: n-financials-leak-2, rule_ids: [financials-leak], text: "the internal team meeting covered financial planning basics" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me draft next week's team standup agenda?" }
+  - { id: gb-2, text: "What's a good framework for a competitive market analysis?" }
+  - { id: gb-3, text: "Summarize the key points from this public earnings call transcript" }
+  - { id: gb-4, text: "How should I structure a customer onboarding email?" }
+  - { id: gb-5, text: "Give me three ideas for our public product launch blog post" }
+  - { id: gb-6, text: "What's the difference between revenue and profit?" }
+  - { id: gb-7, text: "Help me write a job posting for a sales role" }
+  - { id: gb-8, text: "Explain how a company typically prepares for an IPO" }

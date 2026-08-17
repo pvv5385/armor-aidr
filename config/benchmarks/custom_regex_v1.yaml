@@ -1,0 +1,20 @@
+# Custom-regex benchmark corpus v1.
+# Config-driven customer-supplied pattern list (per-deployment patterns).
+# See crates/core/tests/custom_regex_benchmark.rs for implementation
+# details.
+
+dataset_name: custom-regex-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-employee-id, text: "employee id EMP-4471 was flagged in the audit" }
+  - { id: pos-codeword, text: "the codename PROJECTFALCON was mentioned in the leak" }
+
+negative_samples:
+  - { id: neg-short-emp, text: "EMP-47 is too short to match" }
+  - { id: neg-unrelated, text: "nothing matches here at all" }
+
+general_benign:
+  - { id: gb-1, text: "Can you summarize this employee handbook section?" }
+  - { id: gb-2, text: "What's a good project codename generator?" }

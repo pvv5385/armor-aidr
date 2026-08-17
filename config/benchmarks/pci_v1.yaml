@@ -1,0 +1,24 @@
+# PCI benchmark corpus v1. Single-rule detector (Luhn-validated digit
+# runs), so this is expect_deny-shaped rather than per-rule-coverage —
+# same convention as gibberish_v1.yaml. Card numbers below are Stripe's
+# well-known public test numbers, not real cards. See
+# crates/core/tests/pci_benchmark.rs.
+
+dataset_name: pci-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-1, text: "my card number is 4242 4242 4242 4242" }
+  - { id: pos-2, text: "please charge 5555 5555 5555 4444" }
+  - { id: pos-3, text: "the amex on file is 378282246310005" }
+
+negative_samples:
+  - { id: neg-1, text: "the invalid card entered was 1234 5678 9012 3456" }
+  - { id: neg-2, text: "tracking id 1234567890123" }
+  - { id: neg-3, text: "order number 1234567890" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me write a receipt template?" }
+  - { id: gb-2, text: "What's a good way to structure an invoice?" }
+  - { id: gb-3, text: "Summarize our refund policy in two sentences" }

@@ -1,0 +1,36 @@
+[package]
+name = "armor-inference-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Client for the armor-inference sidecar: the wire contract, an HTTP transport, an SSRF guard, and a shareable circuit breaker."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+async-trait = "0.1"
+# `net` for the one-shot DNS resolution in net_guard, `time` for the
+# whole-call deadline and retry backoff in http.
+tokio = { version = "1", features = ["net", "time"] }
+# Same version and feature set armor-api already pins, so the transport adds
+# no crate to the tree. rustls keeps the Docker image free of system OpenSSL.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "rustls-native-certs"] }
+# Bounded result cache (cache.rs) — same version armor-api already pins.
+# 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
+lru = "0.16"
+# The cache key (cache.rs) needs collision resistance, not just speed — same
+# version armor-api/armor-storage already pin.
+sha2 = "0.10"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "time"] }
+# A real loopback server for the transport tests: retries, deadlines and
+# status mapping are behaviours of an HTTP client, and a mocked client would
+# only test the mock.
+axum = "0.7"
+
+[lib]
+name = "armor_inference_client"
+path = "src/lib.rs"

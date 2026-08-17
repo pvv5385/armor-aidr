@@ -1,0 +1,40 @@
+# Hate-content ruleset — requests to generate or justify hateful content
+# targeting a protected group (race, religion, ethnicity, nationality,
+# gender, sexual orientation, disability), regardless of framing.
+#
+# Newly authored for this repo, not ported verbatim from any third party.
+# Prior art in this space typically relies on lookahead/lookbehind
+# assertions Rust's `regex` crate doesn't support, so these are freshly
+# written to this ruleset's own schema and regex style (single `(?i)` per
+# rule, no lookarounds/backreferences), following the same
+# "instructional/acquisitional verb phrase plus topic noun phrase, not a
+# bare keyword" convention as
+# rules/harmful_content/rules.yaml to keep the false-positive profile
+# manageable against news, history, and policy discussion that merely
+# discusses these topics. No eval pass yet — see this repo's harmful_content
+# benchmark for what that pass looks like once one is scheduled for this
+# category. Shipped `mode: warn` in config/policies.yaml pending it.
+- id: hate-content-promotion-request
+  description: Requests content that promotes, incites, or celebrates hatred/violence against a protected group
+  category: hate_promotion
+  regex: '(?i)\b(?:write|create|generate|compose)\s+(?:a\s+|an\s+)?(?:article|post|essay|speech|song|poem|joke|meme)\s+(?:that|which)\s+(?:promotes|incites|celebrates|glorifies)\s+(?:hatred|violence|genocide)\s+against\s+(?:jews|jewish\s+people|muslims|christians|black\s+people|white\s+people|asians?|latinos?|hispanics?|immigrants?|refugees?|women|men|gay\s+people|lesbians?|lgbtq\+?\s+people|trans(?:gender)?\s+people|disabled\s+people|a\s+religious\s+group|an\s+ethnic\s+group|a\s+racial\s+group)\b'
+- id: dehumanization-comparison-request
+  description: Requests dehumanizing comparisons of a protected group to vermin/animals/subhuman
+  category: dehumanization
+  regex: '(?i)\b(?:describe|compare|refer\s+to)\s+(?:jews|jewish\s+people|muslims|christians|black\s+people|white\s+people|asians?|latinos?|hispanics?|immigrants?|refugees?|gay\s+people|trans(?:gender)?\s+people|disabled\s+people)\s+as\s+(?:vermin|rats|cockroaches|subhuman|animals|parasites)\b'
+- id: discriminatory-exclusion-argument-request
+  description: Requests an argument for denying a protected group a fundamental right
+  category: discriminatory_incitement
+  regex: '(?i)\bwrite\s+(?:an?\s+)?(?:argument|essay|post)\s+(?:for|arguing)\s+why\s+(?:jews|muslims|christians|black\s+people|white\s+people|women|men|gay\s+people|immigrants?|disabled\s+people)\s+should\s+(?:not\s+be\s+allowed\s+to|be\s+denied\s+the\s+right\s+to)\s+(?:vote|work|marry|hold\s+office|have\s+rights)\b'
+- id: genocide-justification-request
+  description: Requests a justification or denial of a genocide/ethnic cleansing
+  category: discriminatory_incitement
+  regex: '(?i)\b(?:explain|argue|write)\s+why\s+(?:the\s+holocaust|the\s+genocide|ethnic\s+cleansing)\s+(?:was\s+justified|was\s+a\s+good\s+thing|never\s+happened)\b'
+- id: hate-group-symbol-request
+  description: Requests design of a symbol/logo/flag for a hate group
+  category: hate_promotion
+  regex: '(?i)\b(?:design|create|draw)\s+(?:a\s+)?(?:logo|symbol|flag|banner)\s+for\s+(?:a\s+)?(?:white\s+supremacist|neo-nazi|hate)\s+group\b'
+- id: slur-generation-request
+  description: Requests generation of a list of slurs targeting a protected group
+  category: hate_promotion
+  regex: '(?i)\b(?:generate|create|come\s+up\s+with)\s+(?:a\s+list\s+of\s+)?(?:racial|ethnic|homophobic|religious)\s+slurs?\b'

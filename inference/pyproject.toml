@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "armor-inference"
+version = "0.1.0"
+description = "Optional model-backed inference sidecar for Armor. Boots with no ML dependencies and no weights."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+# The base install is what the service needs to serve the contract on the
+# StubRunner: a web framework, validation, and a YAML reader for the catalog.
+# No torch, no onnxruntime, no transformers — a task that needs them says so
+# through its runner kind, and the registry lazy-imports at that point.
+dependencies = [
+    "fastapi>=0.110",
+    "pydantic>=2.6",
+    "uvicorn[standard]>=0.27",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+# The SERVING stack: onnxruntime executes the graph, `tokenizers` (the
+# standalone Rust crate, not `transformers`) turns text into ids. Together
+# ~150MB. This is what the image installs by default — [export] joins it
+# only when built with --build-arg WITH_EXPORT=true (see
+# Dockerfile.inference).
+onnx = [
+    "onnxruntime>=1.17",
+    "tokenizers>=0.15",
+    "numpy>=1.24",
+]
+
+# Nvidia-accelerated serving: swaps in CUDA/TensorRT execution providers.
+# Mutually exclusive with [onnx] — both distribute a module literally named
+# `onnxruntime`, so installing both in one environment leaves whichever
+# installed last silently shadowing the other. Runners still auto-detect at
+# runtime either way (ARMOR_INFERENCE_DEVICE=auto, the default): this extra
+# only decides which providers the installed package makes available to
+# detect. AMD ROCm has no equivalent PyPI wheel — see inference/README.md.
+cuda = [
+    "onnxruntime-gpu>=1.17",
+    "tokenizers>=0.15",
+    "numpy>=1.24",
+]
+
+# The EXPORT stack: torch + optimum, needed only to download a checkpoint and
+# convert it to a quantized ONNX graph. Not needed by any catalog default —
+# every one of them installs by downloading an already-published ONNX graph
+# (see fetch.py's _find_prebuilt_onnx). Only some vetted *alternatives*
+# (config/ml_catalog.yaml's candidates, e.g. unitary/toxic-bert) need it, so
+# it joins [onnx]/[cuda] in the serving image only when built with
+# --build-arg WITH_EXPORT=true (see Dockerfile.inference) — otherwise
+# `POST /v1/models/install` on one of those alternatives fails asking for
+# this extra, same as it would outside Docker.
+#
+# `optimum-onnx`, bare — NOT `optimum[onnxruntime,exporters]`. As of optimum
+# 2.x, ONNX export + the `optimum.onnxruntime` runtime wrapper moved out of
+# the core `optimum` package into this separate distribution; the old extras
+# still parse but silently resolve to nothing; `optimum.onnxruntime` on 2.x
+# is not the same as this. Left bare (no `[onnxruntime]`/`[onnxruntime-gpu]`
+# extra) deliberately: those extras would install a *second*, independent
+# `onnxruntime`/`onnxruntime-gpu` — landing in the same import path as
+# whichever one `[onnx]`/`[cuda]` already installed and silently shadowing
+# it depending on install order (see the `[cuda]` extra's comment below).
+# `optimum.onnxruntime`'s classes only need *some* `onnxruntime` importable
+# to wrap the exported graph; they don't care which extra put it there, so
+# leaving `[onnx]`/`[cuda]` as the single source of that package keeps
+# export orthogonal to which device serves the result.
+export = [
+    "torch>=2.2",
+    "transformers>=4.38",
+    "optimum-onnx>=0.1",
+    "huggingface-hub>=0.21",
+]
+
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+armor-inference-fetch = "armor_inference.fetch:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:armor_inference.*"]
+
+[tool.ruff]
+target-version = "py311" # matches requires-python
+src = ["src"]
+
+[tool.ruff.lint]
+# A narrow, high-signal gate rather than ruff's full default set, chosen so
+# that everything it reports is worth a maintainer's attention on the day it
+# fires. A linter that shouts about 300 stylistic nits gets silenced with a
+# blanket ignore within a month, and then it is not catching the real ones
+# either.
+#
+#   F   pyflakes — unused imports/variables, redefinitions. Real defects.
+#   E4  import formatting
+#   E7  statement-level mistakes (comparison to None/True, bare `l` names)
+#   E9  syntax and IO errors
+#   I   import sorting, so diffs stay legible
+#   B   flake8-bugbear — mutable default args, `zip()` without strict=, and
+#       the other easy-to-write, hard-to-see runtime bugs
+#   G   logging-format correctness; this service's logs are its operational
+#       surface, and a broken format string only shows up in an incident
+select = ["F", "E4", "E7", "E9", "I", "B", "G"]
+
+# Deliberately NOT enabled yet, so this gate could go green without a
+# 260-line mechanical rewrite landing in the same change:
+#
+#   UP  pyupgrade — would modernize ~260 annotations (`Optional[X]` → `X |
+#       None`, `List` → `list`). Safe on py311 and worth doing; it just wants
+#       to be its own PR that a human reads, not a drive-by.
+#   S   flake8-bandit — flags 341 bare `assert`s in the test suite (expected,
+#       they are tests) plus a handful of genuine looks-like-a-credential
+#       findings in fixtures. Needs per-file triage before it can gate.
+#   E501 line-too-long — 104 hits; adopt with a formatter, not by hand.
+
+[tool.ruff.lint.per-file-ignores]
+# Test modules re-export fixtures and shadow names by design.
+"tests/*" = ["F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["armor_inference"]

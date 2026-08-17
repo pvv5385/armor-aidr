@@ -1,0 +1,21 @@
+# Keyword-blocklist benchmark corpus v1. Config-driven literal-phrase
+# list, not a rule bank — expect_deny-shaped. Evaluated with
+# `keywords: [merger, layoff, lawsuit], whole_word: true, case_sensitive:
+# false`. See crates/core/tests/keyword_blocklist_benchmark.rs.
+
+dataset_name: keyword-blocklist-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: pos-merger, text: "we are discussing the merger internally" }
+  - { id: pos-layoff, text: "the LAYOFF announcement is scheduled for Friday" }
+  - { id: pos-lawsuit, text: "there's a pending lawsuit against the vendor" }
+
+negative_samples:
+  - { id: neg-mergers-different-word, text: "mergerscorp is not a real company name" }
+  - { id: neg-unrelated, text: "nothing sensitive here at all" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me draft a press release?" }
+  - { id: gb-2, text: "Summarize this quarterly report in three bullets" }

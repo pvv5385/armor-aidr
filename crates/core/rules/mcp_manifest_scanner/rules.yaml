@@ -1,0 +1,32 @@
+# MCP-manifest-specific pattern bank — over-broad permission requests in a
+# tool/MCP manifest's declared `permissions` field. Combined with the
+# shared `rules/injection_markers/rules.yaml` bank (a manifest's
+# name/description fields are just as capable of carrying a forged
+# system-role delimiter as any other untrusted text) in
+# `crates/core/src/detectors/mcp_manifest_scanner.rs`.
+#
+# Own pattern set, not ported from any third party.
+- id: dangerous-permission-request
+  description: Requests full/unrestricted/root access to a sensitive resource
+  category: permissions
+  # Two shapes: adjective-led ("requests/requires [full/unrestricted/root]
+  # filesystem/network/system/admin(istrator)/browser access/privileges/
+  # control", adjective optional) and "requests access to <sensitive
+  # target>" (environment variables/secrets/credentials).
+  regex: '(?i)\b(?:requests?|requires?)\s+(?:(?:full|unrestricted|root)\s+)?(?:filesystem|network|system|admin(?:istrator)?|browser)\s+(?:access|privileges?|control)\b|\brequests?\s+access\s+to\b[^.\n]{0,40}\b(?:environment\s+variables|secrets|credentials)\b'
+- id: wildcard-permission-request
+  description: Wildcard permission grant in a manifest field
+  category: permissions
+  # Not anchored to the literal word "permissions"/"capabilities" — a
+  # wildcard value on any manifest key (a nested "filesystem: \"*\"" under
+  # a "capabilities:" block, a YAML-list "- \"*\"" entry) is the same
+  # over-broad grant regardless of which key it's declared under.
+  regex: '(?i)\b\w+\s*:\s*\[?\s*(?:-\s*)?["'']?\*["'']?'
+- id: excessive-capability-request
+  description: Requests every available tool/capability rather than a scoped subset
+  category: permissions
+  regex: '(?i)\b(?:all\s+(?:available\s+)?tools?|every\s+tool)\s+(?:enabled|available)\s+without\s+(?:restrictions?|limits?)\b|\bunrestricted\s+outbound\s+network\s+access\b'
+- id: manifest-prompt-injection
+  description: Manifest free-text field carries an instruction-override or scan-evasion phrase
+  category: prompt_injection
+  regex: '(?i)\bignore\s+previous\s+instructions?\b|\bdo\s+not\s+scan\s+this\s+(?:manifest|file|tool)\b'

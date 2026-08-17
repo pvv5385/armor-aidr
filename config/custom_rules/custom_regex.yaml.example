@@ -1,0 +1,11 @@
+# Example only — the `.example` extension is deliberate so the loader (which
+# only reads *.yaml/*.yml) ignores this file. Copy it to `custom_regex.yaml`
+# in this directory to activate it, and flip the `custom_regex` check in
+# ../policies.yaml to `enabled: true`. See README.md for the full schema.
+patterns:
+  - rule_id: employee-id
+    pattern: 'EMP-\d{4}'
+    severity: high
+  - rule_id: internal-codename
+    pattern: 'PROJECT_FALCON'
+    case_sensitive: true

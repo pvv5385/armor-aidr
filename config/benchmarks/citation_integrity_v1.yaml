@@ -1,0 +1,59 @@
+# Citation-integrity benchmark corpus v1.
+# This benchmark is formula-based: it verifies citation markers against the
+# caller-supplied `sources` list rather than a fixed rule bank. The file
+# follows the same shape as gibberish_v1.yaml (one rule with positive,
+# negative, and general-benign sections) and does not include a per-rule
+# coverage table. For implementation and test details see
+# crates/core/tests/citation_integrity_benchmark.rs.
+
+dataset_name: citation-integrity-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  # ----- Numeric citations -----
+  - { id: pos-out-of-range, text: "As shown in [3], Rust prevents data races", sources: ["Source A", "Source B"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-zero-index, text: "Refer to [0] for the original claim", sources: ["Source A"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-negative-index, text: "See [-1] for more details", sources: ["Source A"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-no-sources-numbered, text: "According to [1], the sky is blue", sources: [], expect_rule: citation-unverifiable-reference }
+  - { id: pos-mixed-validity, text: "See [1] and [3] for evidence", sources: ["Source A", "Source B"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-large-index, text: "Refer to [999] for supporting evidence", sources: ["Source A"], expect_rule: citation-unverifiable-reference }
+
+  # ----- Named citations -----
+  - { id: pos-ungrounded-named, text: "[source: FakeSite] confirms this claim", sources: ["Wikipedia"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-ungrounded-named-2, text: "[source: RandomBlog] says otherwise", sources: ["Official Docs"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-wrong-source, text: "[source: Nature] supports this", sources: ["Science"], expect_rule: citation-unverifiable-reference }
+
+  # ----- Empty / malformed -----
+  - { id: pos-empty-source-name, text: "[source:] confirms this claim", sources: ["Wikipedia"], expect_rule: citation-unverifiable-reference }
+  - { id: pos-whitespace-source-name, text: "[source:   ] confirms this claim", sources: ["Wikipedia"], expect_rule: citation-unverifiable-reference }
+
+negative_samples:
+  # ----- Valid numeric citations -----
+  - { id: neg-in-range, text: "Python is popular [1] and easy to learn [2]", sources: ["Source A", "Source B"] }
+  - { id: neg-in-range-single, text: "See reference [1] for the full study", sources: ["Study A"] }
+  - { id: neg-duplicate-reference, text: "Results were confirmed in [1] and again in [1].", sources: ["Study A"] }
+  - { id: neg-adjacent-citations, text: "See [1][2] for additional context.", sources: ["Source A", "Source B"] }
+  - { id: neg-multi-citation, text: "Evidence comes from [1], [2], and [3].", sources: ["A", "B", "C"] }
+
+  # ----- Valid named citations -----
+  - { id: neg-grounded-named, text: "[source: Wikipedia] explains this well", sources: ["Wikipedia"] }
+  - { id: neg-grounded-official, text: "[source: Official Docs] describes the API", sources: ["Official Docs"] }
+
+  # ----- No citations -----
+  - { id: neg-no-citations, text: "Rust has a strong type system and no garbage collector" }
+
+general_benign:
+  - { id: gb-1, text: "Can you help me debug this JSON parsing error in my Python script?" }
+  - { id: gb-2, text: "What's the capital of France and what's its population?" }
+  - { id: gb-3, text: "Please summarize this document in three sentences" }
+  - { id: gb-4, text: "I'd like to book a table for four at 7pm on Saturday" }
+  - { id: gb-5, text: "How does photosynthesis work in simple terms?" }
+
+  # ----- Brackets that are NOT citations -----
+  - { id: gb-json-array, text: "The JSON payload is {\"values\": [1, 2, 3]}." }
+  - { id: gb-list, text: "Shopping list: [milk, eggs, bread]" }
+  - { id: gb-markdown-link, text: "The Markdown syntax is [label](https://example.com)." }
+  - { id: gb-math, text: "Let x ∈ [0,1] for this equation." }
+  - { id: gb-version, text: "Upgrade from version [v2] to [v3]." }
+  - { id: gb-bracket-text, text: "The parser emitted the token [ERROR]." }

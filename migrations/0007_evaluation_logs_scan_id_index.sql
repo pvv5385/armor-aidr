@@ -1,0 +1,11 @@
+-- `evaluation_logs` shipped with indexes on `occurred_at` and
+-- `application_id` (0001_control_plane.sql) but not on `scan_id`, even
+-- though `crates/storage/src/audit_events.rs`'s `push_log_filters` has
+-- filtered on it (and `crates/api/src/control_plane.rs`'s `GET
+-- /ui/api/logs` has exposed it as a one-click filter) since
+-- 0002_scan_id_and_client_request_id.sql renamed `event_id` to `scan_id`.
+-- Both `list_recent` and `count_recent` run that filter as a sequential
+-- scan without this — the exact-match lookup a caller uses to find "the log
+-- row for this one scan" degrading to an O(table size) scan as the table
+-- grows.
+CREATE INDEX evaluation_logs_scan_id_idx ON evaluation_logs (scan_id);

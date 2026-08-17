@@ -1,0 +1,25 @@
+# Sentiment/tone pattern bank — condescending, dismissive, and sarcastic
+# phrasing a model shouldn't be producing toward a user. Deliberately
+# narrow phrase-level patterns (not a bare-keyword or general polarity
+# lexicon, which would be far too chatty and belongs behind a real
+# sentiment classifier, not a rules-based bank like this one) — each
+# pattern targets a specific condescending/dismissive/sarcastic
+# construction.
+#
+# Own pattern set, not ported from any third party.
+- id: condescending-explanation
+  description: Patronizing "let me explain slowly" framing
+  category: condescension
+  regex: '(?i)\blet\s+me\s+explain\s+this\s+(?:slowly|in\s+simple\s+terms)\s+(?:for|since)\s+you\b'
+- id: condescending-obviously
+  description: "\"Obviously you don't understand\" framing"
+  category: condescension
+  regex: '(?i)\b(?:obviously|clearly)\s+you\s+(?:don''t|do\s+not)\s+understand\b'
+- id: dismissive-not-my-problem
+  description: Dismissive "not my problem" framing
+  category: dismissive
+  regex: '(?i)\bthat''s\s+not\s+my\s+problem\b'
+- id: sarcastic-praise
+  description: Sarcastic mock-praise framing
+  category: sarcasm
+  regex: '(?i)\boh\s+(?:great|wonderful|fantastic)[,.]?\s+another\s+(?:brilliant|genius)\s+(?:idea|question)\b'

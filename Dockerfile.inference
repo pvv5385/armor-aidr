@@ -1,0 +1,130 @@
+# syntax=docker/dockerfile:1
+#
+# `armor-inference` — the optional model-backed sidecar.
+#
+# One thing this image deliberately does NOT contain: weights. Models are a
+# supply-chain artifact; baking them in means the image tag no longer tells
+# you what is scoring your traffic. Mount them at /models, or install them
+# after start (see inference/README.md).
+#
+# By default it carries only the serving stack (onnxruntime + tokenizers,
+# ~150MB) — every catalog default installs by downloading an already-
+# published ONNX graph (`fetch.py`'s `_find_prebuilt_onnx`), so torch is
+# unneeded for the shipped configuration. Build with `--build-arg
+# WITH_EXPORT=true` to also install torch + optimum, so `POST
+# /v1/models/install` can export a checkpoint in-process for the specific
+# vetted alternatives that don't publish ONNX themselves (see
+# `config/ml_catalog.yaml`'s `candidates` notes, e.g. `unitary/toxic-bert`).
+# Torch is pulled from the CPU-only wheel index either way — export is a
+# one-time, CPU-bound step that never serves a request, and the ONNX graph
+# it produces is hardware-agnostic, so this has no bearing on whether
+# serving itself runs on CPU or GPU. That's decided solely by `onnxruntime`
+# vs `onnxruntime-gpu` below.
+#
+# Built from the repo root so `config/ml_catalog.yaml` is in context:
+#   docker build -f Dockerfile.inference -t armor-inference:local .
+#   docker build -f Dockerfile.inference --build-arg WITH_EXPORT=true -t armor-inference:local .
+
+FROM python:3.12-slim AS runtime
+
+ARG WITH_EXPORT=false
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY inference/pyproject.toml inference/README.md ./inference/
+COPY inference/src ./inference/src
+
+# For a GPU serving build, swap `[onnx]` for `[cuda]` below (pulls
+# onnxruntime-gpu instead — see inference/README.md's GPU section). Leave
+# `[export]` as-is either way when WITH_EXPORT=true: it depends on bare
+# `optimum-onnx` (no `[onnxruntime]`/`[onnxruntime-gpu]` extra),
+# specifically so it never installs its own onnxruntime and shadows
+# whichever one `[onnx]`/`[cuda]` put there.
+#
+# CPU-only torch (from the PyTorch CPU index, not pip's default resolution
+# of optimum's torch dependency, which can pull a much larger CUDA-enabled
+# wheel even though export never touches the GPU) only goes in when
+# WITH_EXPORT=true asks for it.
+RUN if [ "$WITH_EXPORT" = "true" ]; then \
+        pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir "./inference[onnx,export]"; \
+    else \
+        pip install --no-cache-dir "./inference[onnx]"; \
+    fi
+
+# The task catalog is shared with armor-core, so it comes from the repo's
+# config/ rather than being duplicated here.
+COPY config/ml_catalog.yaml ./config/ml_catalog.yaml
+
+# Non-root, and /models exists up front so a bind mount lands on a directory
+# this user can read — and, when installs are enabled, write. /var/run/armor
+# is where an auto-generated ARMOR_INFERENCE_AUTH_TOKEN gets published (see
+# main.py's lifespan) for armor-core to read off the volume compose mounts
+# there — mode 0755 (not owner-only) because armor-core's own image mints
+# its `armor` user independently, at a different uid, and still needs to
+# read the file this user writes. `docker-compose.yml` mounts a volume here
+# for both services; on a bare (non-compose) run this directory just stays
+# local and unread, same effect as today.
+RUN useradd --system --create-home --home-dir /home/armor --shell /usr/sbin/nologin armor \
+    && mkdir -p /models /var/run/armor \
+    && chown -R armor:armor /models /app /var/run/armor \
+    && chmod 0755 /var/run/armor
+USER armor
+
+ENV ARMOR_INFERENCE_ARTIFACTS_DIR=/models \
+    ARMOR_ML_CATALOG=/app/config/ml_catalog.yaml \
+    ARMOR_INFERENCE_TOKEN_FILE=/var/run/armor/inference-token \
+    PORT=9000 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 9000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:9000/healthz || exit 1
+
+CMD ["python", "-m", "uvicorn", "armor_inference.main:app", "--host", "0.0.0.0", "--port", "9000"]
+
+# ---------------------------------------------------------------------------
+# `export` — a lighter-weight, always-export-capable alternative to the
+# runtime image above for the CLI fetch flow: no fastapi/uvicorn, just enough
+# to run `armor-inference-fetch`. Still needs `[onnx]` alongside `[export]`
+# despite that — `optimum-onnx`'s `ORTModelForSequenceClassification.
+# from_pretrained(..., export=True)` imports `onnxruntime` directly
+# (`optimum/onnxruntime/modeling.py`) to build/verify the exported graph, so
+# without it every export-required model (anything with no pre-built ONNX on
+# the hub) fails at import time with a misleading "optimum isn't installed"
+# error. Useful regardless of whether the runtime image was built with
+# `WITH_EXPORT=true` — for CI, or a one-off offline fetch without touching a
+# running service. Reachable via `docker compose --profile ml-fetch` (see
+# docker-compose.yml's `ml-fetch` service / `make ml-fetch`).
+FROM python:3.12-slim AS export
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY inference/pyproject.toml inference/README.md ./inference/
+COPY inference/src ./inference/src
+RUN pip install --no-cache-dir "./inference[onnx,export]"
+
+COPY config/ml_catalog.yaml ./config/ml_catalog.yaml
+
+RUN useradd --system --create-home --home-dir /home/armor --shell /usr/sbin/nologin armor \
+    && mkdir -p /models \
+    && chown -R armor:armor /models /app
+USER armor
+
+ENV ARMOR_INFERENCE_ARTIFACTS_DIR=/models \
+    ARMOR_ML_CATALOG=/app/config/ml_catalog.yaml \
+    PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["armor-inference-fetch"]
+CMD ["--list"]

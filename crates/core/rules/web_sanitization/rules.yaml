@@ -1,0 +1,30 @@
+# Web-sanitization pattern bank — browser-executable markup smuggled into
+# prose output that should have been plain text/Markdown: `<script>`,
+# inline event-handler attributes, `javascript:` URIs, `<iframe>` embeds,
+# and base64 `data:text/html` URIs. Fast, named, specific rules for the
+# constructs called out above. `web_sanitization.rs` additionally runs a
+# real sanitizer (`ammonia`) second opinion alongside this rule bank —
+# see that file's `ammonia_stripped_hits` — to catch event-handler
+# attributes and dangerous URL schemes beyond the ones named here.
+#
+# Own pattern set, not ported from any third party.
+- id: script-tag
+  description: Inline <script> tag in output
+  category: script
+  regex: '(?i)<script\b'
+- id: event-handler-attribute
+  description: Inline browser event-handler attribute (onclick/onerror/etc.)
+  category: event_handler
+  regex: '(?i)\bon(?:click|error|load|mouseover|focus|pointerdown)\s*='
+- id: javascript-uri
+  description: "javascript: URI in an href/src attribute"
+  category: uri
+  regex: '(?i)\b(?:href|src)\s*=\s*["'']javascript:'
+- id: iframe-tag
+  description: Inline <iframe> embed
+  category: embed
+  regex: '(?i)<iframe\b'
+- id: data-uri-html
+  description: "base64-encoded data:text/html URI"
+  category: uri
+  regex: '(?i)data:text/html;base64,'

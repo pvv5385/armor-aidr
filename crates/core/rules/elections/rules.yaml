@@ -1,0 +1,28 @@
+# Elections ruleset — requests to generate election-fraud misinformation,
+# candidate smear misinformation, voter-suppression content, or election-
+# interference instructions.
+#
+# Newly authored for this repo (see rules/hate/rules.yaml's header for the
+# general provenance note — not a verbatim port of any third-party pattern
+# bank). Severity::Medium. Shipped `mode: warn` in config/policies.yaml
+# pending an eval pass.
+- id: election-fraud-misinformation-request
+  description: Requests content claiming an election was stolen/rigged without evidence
+  category: election_misinformation
+  regex: '(?i)\bwrite\s+(?:an?\s+)?(?:article|post|content)\s+claiming\s+(?:that\s+)?the\s+election\s+was\s+(?:stolen|rigged|fraudulent)\s+without\s+evidence\b'
+- id: candidate-smear-misinformation-request
+  description: Requests content spreading misinformation about a political candidate
+  category: election_misinformation
+  regex: '(?i)\bwrite\s+(?:an?\s+)?(?:article|story|post)\s+(?:falsely\s+claiming|spreading\s+misinformation)\s+about\s+a\s+political\s+candidate\b'
+- id: voter-suppression-content-request
+  description: Requests content that discourages or misleads voters
+  category: voter_suppression
+  regex: '(?i)\bwrite\s+content\s+(?:that|which)\s+(?:discourages|misleads)\s+voters\s+(?:from\s+voting|about\s+(?:the\s+)?voting\s+(?:location|deadline|date))\b'
+- id: election-interference-howto-request
+  description: Asks how to manipulate, interfere with, or rig an election
+  category: election_interference
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:manipulate|interfere\s+with|rig)\s+(?:an\s+election|the\s+vote|voting\s+machines)\b'
+- id: fake-election-results-request
+  description: Requests a fake announcement of false election results
+  category: election_misinformation
+  regex: '(?i)\bwrite\s+a\s+fake\s+(?:news\s+article|press\s+release)\s+announcing\s+(?:false|incorrect)\s+election\s+results\b'

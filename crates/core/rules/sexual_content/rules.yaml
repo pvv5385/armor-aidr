@@ -1,0 +1,30 @@
+# Sexual-content ruleset — requests for explicit/pornographic adult sexual
+# content. Deliberately adult-only in scope: any minor-directed phrasing is
+# already owned by rules/harmful_content/rules.yaml's `csam` sub-category
+# (Severity::Critical there); this ruleset never adds minor terms to its
+# patterns so the two stay non-overlapping by construction.
+#
+# Newly authored for this repo (see rules/hate/rules.yaml's header for the
+# general provenance note — not a verbatim port of any third-party pattern
+# bank). Severity::Medium, not
+# High/Critical like the other new categories here — this is a brand-safety/
+# policy concern for most deployments, not an immediate-harm one, and is the
+# category most likely to false-positive against legitimate creative-writing
+# requests, so it's the first candidate for tuning once an eval pass runs.
+# Shipped `mode: warn` in config/policies.yaml.
+- id: explicit-sexual-scene-request
+  description: Requests an explicit/graphic sexual scene involving adults
+  category: sexual_content
+  regex: '(?i)\bwrite\s+(?:a\s+|an\s+)?(?:explicit|graphic)\s+sex(?:ual)?\s+scene\s+(?:between|involving)\s+(?:two\s+)?adults?\b'
+- id: pornographic-content-request
+  description: Requests pornographic/nsfw/x-rated content generation
+  category: sexual_content
+  regex: '(?i)\b(?:generate|write|create)\s+(?:pornographic|nsfw|x-rated)\s+(?:content|story|image\s+description)\b'
+- id: explicit-roleplay-request
+  description: Requests explicit/graphic sexual roleplay
+  category: sexual_content
+  regex: '(?i)\b(?:engage\s+in|write)\s+(?:explicit|graphic)\s+sexual\s+roleplay\b'
+- id: erotica-generation-request
+  description: Requests erotica involving adults
+  category: sexual_content
+  regex: '(?i)\b(?:write|generate|create)\s+(?:an?\s+)?erotic(?:a)?\s+(?:story|scene|content)\s+(?:involving|between|about)\s+(?:two\s+)?adults?\b'

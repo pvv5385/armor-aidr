@@ -1,0 +1,45 @@
+# Over-refusal pattern bank — refusal boilerplate a model shouldn't be
+# producing when the request was benign. This is a *quality* signal, not a
+# safety block (port of llm-guard's `output_scanners/no_refusal.py`
+# substring-list tier, `NoRefusalLight`): a spike in this detector's flag
+# rate after a threshold change on another detector is the tell that the
+# other detector got too aggressive and is scaring the model into refusing.
+# Deliberately narrow phrase-level patterns requiring actual refusal
+# framing, not a bare "I can't" match — that alone would fire on ordinary
+# hedging ("I can't say for certain", "I can't wait") that has nothing to
+# do with declining a request.
+#
+# Own pattern set, not ported verbatim from llm-guard (which ships a
+# ready-made phrase list).
+- id: as-an-ai-disclaimer-refusal
+  description: "\"As an AI [language model], I cannot/can't...\" framing"
+  category: disclaimer_refusal
+  regex: '(?i)\bas an ai(?:\s+language\s+model)?,?\s+i\s+(?:cannot|can''t|am\s+not\s+able\s+to)\b'
+- id: cannot-assist-with-that-request
+  description: "\"I cannot/can't/am unable to assist/help with that/this request\" framing"
+  category: request_decline
+  regex: '(?i)\bi\s+(?:cannot|can''t|am\s+unable\s+to)\s+(?:assist|help)\s+with\s+(?:that|this)(?:\s+request)?\b'
+- id: cannot-fulfill-request
+  description: "\"I cannot/can't/won't fulfill/comply with that/this request\", or \"I won't be able to complete that/this task\" framing"
+  category: request_decline
+  regex: '(?i)\bi\s+(?:cannot|can''t|won''t)\s+(?:fulfill|comply\s+with)\s+(?:that|this)\s+request\b|\bi\s+won''t\s+be\s+able\s+to\s+complete\s+(?:that|this)\s+task\b'
+- id: goes-against-policy
+  description: "\"That/this goes against/violates my/our guidelines/policy\", or \"not something I can help with under my/our policy\" framing"
+  category: policy_refusal
+  regex: '(?i)\b(?:that|this)\s+(?:goes\s+against|violates)\s+(?:my|our)\s+(?:guidelines|policy|policies)\b|\bnot\s+something\s+i\s+can\s+help\s+with\s+under\s+(?:my|our)\s+polic(?:y|ies)\b'
+- id: not-able-to-provide
+  description: "\"I'm/I am not able/allowed to, or unable to, provide/generate/create that/this\" framing"
+  category: request_decline
+  regex: '(?i)\bi(?:''m| am)\s+(?:not\s+(?:able|allowed)\s+to|unable\s+to)\s+(?:provide|generate|create)\s+(?:that|this)\b'
+- id: sorry-cannot-comply
+  description: "\"I'm sorry, but I cannot/can't comply with that/this\" framing"
+  category: policy_refusal
+  regex: '(?i)\bi(?:''m| am)\s+sorry,?\s+but\s+i\s+(?:cannot|can''t)\s+comply\s+with\s+(?:that|this)\b'
+- id: capability-limitation-refusal
+  description: "\"I can't/cannot access your/this/that\", \"I don't have access to\", or \"I cannot perform actions outside\" framing"
+  category: capability_limitation
+  regex: '(?i)\bi\s+(?:can''t|cannot)\s+access\s+(?:your|this|that)\b|\bi\s+don''t\s+have\s+access\s+to\b|\bi\s+cannot\s+perform\s+actions\s+outside\b'
+- id: excessive-apology-refusal
+  description: An apology (sorry/I apologize) followed within a short span by a refusal negation
+  category: apology_refusal
+  regex: '(?i)\b(?:i''?m\s+sorry|i\s+apologize|sorry)\b[^.\n]{0,40}\b(?:cannot|can''t|unable\s+to|won''t)\b'

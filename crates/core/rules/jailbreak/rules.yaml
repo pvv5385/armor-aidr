@@ -1,0 +1,130 @@
+# Curated pattern-based jailbreak ruleset — the persona/framing/obfuscation
+# *mechanism* half of jailbreaking, distinct in scope from prompt_injection/
+# (instruction-override structure) and deliberately not covering harmful-
+# content-topic requests (weapons/drugs/CSAM/violence how-tos): those are a
+# content-classification problem with their own false-positive profile and
+# belong to the `harmful_content` category (rules/harmful_content/rules.yaml).
+#
+# Hand-authored pattern bank targeting the common persona-override,
+# fictional-framing, ethics-bypass-declaration, obfuscated-bypass, and
+# bare-keyword phrasings seen in jailbreak attempts. Regex style is this
+# ruleset's own: single `(?i)` per rule, no lookarounds/backreferences so
+# every pattern carries over cleanly to Rust's `regex` crate.
+#
+# Shipped `mode: warn` in config/policies.yaml, not `block` — this bank
+# (particularly fictional_framing) is chattier than prompt_injection's
+# structural patterns and needs its own precision/recall eval pass before
+# it's trusted to deny on hit.
+#
+# Eval pass landed: config/benchmarks/jailbreak_v1.yaml +
+# crates/core/tests/jailbreak_benchmark.rs. Results: 100% recall (after
+# fixing 4 rules this pass found real bugs in — see git history on this
+# file), 0% FPR on persona_override/obfuscated_bypass/jailbreak_keyword's
+# compromise-declaration, ~45% FPR on fictional_framing +
+# ethics_bypass_declaration's no-content-safety-filters +
+# jailbreak-keyword-mention (confirms the "chattier" prediction above —
+# these five/six rules are common phrase-openers with no adversarial-
+# specific payload and shouldn't be promoted to `mode: block` without
+# either a corroborating-signal requirement or a model-backed tier).
+# Notably, jailbreak-keyword-mention's single biggest FP source is device
+# jailbreaking (iPhone/iPad/console) — an extremely common, entirely
+# benign consumer-support sense of the word "jailbreak" unrelated to LLM
+# attacks, and not something a bare keyword match can disambiguate.
+#
+# The category ships as one `mode: warn` check in config/policies.yaml, not
+# split per-rule — the policy engine's enforcement mode is per-category, so
+# even though persona_override/obfuscated_bypass are eval-clean enough to
+# consider for `block`, promoting just that subset would need per-rule (not
+# per-category) mode granularity, which doesn't exist yet.
+- id: unethical-persona-request
+  description: Requests the model act as an unethical/uncensored/unfiltered persona
+  category: persona_override
+  regex: '(?i)\b(?:act|behave)\s+as\s+(?:an?\s+)?(?:uncensored|unethical|unfiltered|malicious|immoral|unrestricted|evil)\b'
+- id: jailbroken-mode-request
+  description: Requests an unbiased/uncensored/unrestricted/jailbroken mode or model
+  category: persona_override
+  regex: '(?i)\b(?:jailbroken|unrestricted|uncensored|unbiased)\s+(?:mode|version|model|state)\b'
+- id: role-immersion-request
+  description: Asks the model to fully immerse itself into a role, bypassing its own identity
+  category: persona_override
+  regex: '(?i)\b(?:immerse|submerge)\s+yourself\s+(?:in|into)\s+(?:this|the)\s+role\b'
+- id: persona-replacement
+  description: Claims the model has been replaced by or is now acting as an unrestricted persona
+  category: persona_override
+  regex: '(?i)\byou(?:''re|\s+are)?\s+(?:currently\s+|now\s+)?(?:acting|replaced)\s+(?:as|by)\s+(?:an?\s+|the\s+)?(?:unbiased|uncensored|unrestricted|immoral)\b'
+- id: evil-role-request
+  description: Asks the model to take on an unethical/evil/malicious role
+  category: persona_override
+  regex: '(?i)\b(?:play|take\s+on|assume)\s+the\s+(?:role|persona)\s+of\s+(?:an?\s+)?(?:unethical|malicious|immoral|disrespectful|uncensored|unfiltered|evil)\b'
+- id: unfiltered-narrator-request
+  description: Requests an unfiltered/uncensored game host, storyteller, or narrator persona
+  category: persona_override
+  regex: '(?i)\b(?:uncensored|unfiltered|unlimited)\s+(?:narrator|story\s*teller|game\s+(?:master|host|dm))\b'
+- id: fictional-scenario-framing
+  description: Frames the request inside a movie/story/hypothetical-scenario wrapper
+  category: fictional_framing
+  regex: '(?i)\bin\s+a\s+(?:movie|story|fiction|novel|hypothetical\s+scenario)\b'
+- id: narrative-bypass-request
+  description: Asks for a story built around a specific scenario, a common jailbreak wrapper
+  category: fictional_framing
+  regex: '(?i)\b(?:write|tell|create)\s+a\s+story\s+(?:where|about|in\s+which)\b'
+- id: hypothetically-speaking
+  description: Explicit hypothetical-speaking framing
+  category: fictional_framing
+  regex: '(?i)\bhypothetically\s+speaking\b'
+- id: research-purposes-framing
+  description: Claims research/academic/educational purpose as justification
+  category: fictional_framing
+  regex: '(?i)\bfor\s+(?:research|academic|educational)\s+purposes\b'
+- id: alternate-universe-framing
+  description: Frames the request as happening in an alternate universe/reality
+  category: fictional_framing
+  regex: '(?i)\bin\s+an?\s+alternate\s+(?:universe|reality)\b'
+- id: imagine-a-world-framing
+  description: "\"Imagine if/that/a world\" hypothetical framing"
+  category: fictional_framing
+  regex: '(?i)\bimagine\s+(?:if|that|a\s+world)\b'
+- id: no-matter-how-immoral
+  description: Demands compliance regardless of how immoral/unethical/illegal/harmful
+  category: ethics_bypass_declaration
+  regex: '(?i)\b(?:no\s+matter|regardless\s+of)\s+how\s+(?:harmful|illegal|unethical|immoral)\b'
+- id: regardless-of-ethical-implications
+  description: Demands compliance regardless of ethical implications
+  category: ethics_bypass_declaration
+  regex: '(?i)\bregardless\s+of\s+(?:the\s+)?ethical\s+implications?\b'
+- id: not-bound-by-ethics
+  description: Claims the model is not bound/limited/constrained/governed by ethical norms
+  category: ethics_bypass_declaration
+  regex: '(?i)\bnot\s+(?:bound|limited|constrained|governed)\s+by\s+(?:any\s+)?(?:ethical|moral|legal|safety|social)\b'
+- id: no-concept-of-ethics
+  description: Claims the persona has no concept of morals/ethics
+  category: ethics_bypass_declaration
+  regex: '(?i)\bno\s+concept\s+of\s+(?:morals?|ethics|ethical)\b'
+- id: never-restricted-by-ethics
+  description: Claims the persona is never restricted by ethical/moral/social/legal norms
+  category: ethics_bypass_declaration
+  regex: '(?i)\b(?:never|not)\s+restricted\s+by\s+(?:any\s+|the\s+)?(?:legal|social|moral|ethical)\b'
+- id: free-from-ethics-restrictions
+  description: Claims freedom from ethics/moral/safety/legal restrictions
+  category: ethics_bypass_declaration
+  regex: '(?i)\bfree\s+from\s+(?:any\s+|all\s+)?(?:ethics|morals?|ethical|safety|legal)\s+(?:restrictions?|guidelines?|limitations?)\b'
+- id: no-content-safety-filters
+  description: Demands no content/safety/moral/legal filters apply
+  category: ethics_bypass_declaration
+  regex: '(?i)\b(?:no|zero)\s+(?:safety|content|legal|moral)\s+(?:restrictions?|guidelines?|filters?|limitations?)\b'
+- id: leetspeak-ignore
+  description: Leetspeak obfuscation of "ignore" (evasion of literal keyword filters)
+  category: obfuscated_bypass
+  regex: '(?i)\b1gn[o0]r[e3]\b'
+- id: leetspeak-bypass
+  description: Leetspeak obfuscation of "bypass" (evasion of literal keyword filters), scoped to a restriction-like object to avoid firing on unrelated senses of the word (e.g. "heart bypass surgery")
+  category: obfuscated_bypass
+  regex: '(?i)\bbyp[a4]ss\s+(?:\w+\s+){0,3}(?:restrictions?|filters?|rules?|guidelines?|safety|security|login|firewall|limitations?|censorship)\b'
+- id: jailbreak-keyword-mention
+  description: Bare "jailbreak"/"jailbreaking"/"jailbroken" keyword ("jailbroken" is an irregular form, not "jailbreak"+"ed", so it's listed as its own alternative)
+  category: jailbreak_keyword
+  regex: '(?i)\bjailbreak(?:ing)?\b|\bjailbroken\b'
+- id: compromise-declaration
+  description: Claims the model has been pwned/hacked/compromised/jailbroken
+  category: jailbreak_keyword
+  regex: '(?i)\byou(?:''re|\s+are|''ve|\s+have)?\s+(?:now\s+)?(?:been\s+)?(?:compromised|hacked|pwned|jailbroken|overridden)\b'

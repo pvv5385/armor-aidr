@@ -1,0 +1,23 @@
+# Every pull request requires a review from a maintainer.
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @pvv5385
+
+# Licensing, attribution, and security policy carry legal weight; they should
+# never be changed as a drive-by edit inside a larger PR.
+/LICENSE            @pvv5385
+/DCO.md             @pvv5385
+/SECURITY.md        @pvv5385
+
+# The rulesets are the accumulated asset. Changes here alter what users are
+# protected from.
+#
+# Spelled as the real path, not the top-level `rules` symlink that points at
+# it: git tracks that symlink as a single blob, so no tracked file has a path
+# beginning `rules/` and a `/rules/` pattern here would match nothing.
+/crates/core/rules/ @pvv5385
+/config/policies.yaml @pvv5385
+
+# CI and release automation are a supply-chain surface.
+/.github/           @pvv5385
+/Dockerfile         @pvv5385

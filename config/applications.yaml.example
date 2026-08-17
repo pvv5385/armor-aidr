@@ -1,0 +1,16 @@
+# Example application_id -> profile_id mapping — copy this to
+# `applications.yaml` (drop the `.example` suffix) inside `config/` to
+# activate it. `crates/api/src/profiles.rs` only reads
+# `ARMOR_APPLICATIONS_PATH` (default `config/applications.yaml`); a missing
+# file just means no application is mapped to a named profile, so this
+# ships inert.
+#
+# Every `application_id` a client sends in `metadata.application_id`
+# (`docs/AIDR_IMPLEMENTATION.md`) that isn't listed here falls back to the
+# default profile (`config/policies.yaml`) automatically — nothing below is
+# required for the system to work, it's purely additive routing.
+applications:
+  - application_id: travel-assistant-prod
+    profile_id: minimal
+  # - application_id: hr-agent-prod
+  #   profile_id: strict-pii

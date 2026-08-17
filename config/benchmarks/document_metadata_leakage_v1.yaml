@@ -1,0 +1,48 @@
+# Document-metadata-leakage benchmark corpus v1 - labelled samples for
+# every pattern in rules/document_metadata_leakage/rules.yaml, plus the
+# code-only `hidden-invisible-text` check (not in the rules.yaml pattern
+# bank, so it's excluded from the per-rule coverage test but still covered
+# by recall/FPR). Same acceptance convention as exfiltration_v1.yaml — see
+# crates/core/tests/document_metadata_leakage_benchmark.rs.
+
+dataset_name: document-metadata-leakage-v1
+version: 1
+created: 2026-07-30
+
+positive_samples:
+  - { id: tracked-changes-markup-1, rule_id: tracked-changes-markup, text: "<w:ins>added</w:ins> text here" }
+  - { id: tracked-changes-markup-2, rule_id: tracked-changes-markup, text: "document has <w:del>removed</w:del> markup left in" }
+  - { id: revision-history-marker-1, rule_id: revision-history-marker, text: "Revision History: v3 updated the pricing table" }
+  - { id: revision-history-marker-2, rule_id: revision-history-marker, text: "Track Changes: enabled for this draft" }
+  - { id: internal-windows-path-1, rule_id: internal-windows-path, text: "see C:\\Users\\jsmith\\Documents\\report.docx for details" }
+  - { id: internal-windows-path-2, rule_id: internal-windows-path, text: "the file is at C:\\Users\\admin\\Desktop\\notes.txt" }
+  - { id: internal-unc-path-1, rule_id: internal-unc-path, text: "the share is at \\\\fileserver\\shared\\docs" }
+  - { id: internal-unc-path-2, rule_id: internal-unc-path, text: "copy it to \\\\corp-nas\\finance\\Q3" }
+  - { id: internal-unix-home-path-1, rule_id: internal-unix-home-path, text: "the file lives at /home/jsmith/notes/private.txt on the server" }
+  - { id: internal-unix-home-path-2, rule_id: internal-unix-home-path, text: "check /Users/asmith/Documents/draft.docx for the latest version" }
+  - { id: hidden-invisible-text-1, rule_id: hidden-invisible-text, text: "hello\u200bworld contains a hidden character" }
+  - { id: hidden-invisible-text-2, rule_id: hidden-invisible-text, text: "the text\u200dincludes a zero width joiner" }
+
+negative_samples:
+  - { id: n-tracked-changes-markup-1, rule_ids: [tracked-changes-markup], text: "the document tracks changes automatically in Word" }
+  - { id: n-tracked-changes-markup-2, rule_ids: [tracked-changes-markup], text: "we reviewed the insert statement in the SQL script" }
+  - { id: n-revision-history-marker-1, rule_ids: [revision-history-marker], text: "we reviewed the revision history document together" }
+  - { id: n-revision-history-marker-2, rule_ids: [revision-history-marker], text: "track changes were discussed in the meeting" }
+  - { id: n-internal-windows-path-1, rule_ids: [internal-windows-path], text: "the C: drive has 200GB free space" }
+  - { id: n-internal-windows-path-2, rule_ids: [internal-windows-path], text: "Users typically store files in their home directory" }
+  - { id: n-internal-unc-path-1, rule_ids: [internal-unc-path], text: "use two backslashes to escape the string" }
+  - { id: n-internal-unc-path-2, rule_ids: [internal-unc-path], text: "the network share naming convention uses hyphens" }
+  - { id: n-internal-unix-home-path-1, rule_ids: [internal-unix-home-path], text: "the /home directory on Linux stores user data" }
+  - { id: n-internal-unix-home-path-2, rule_ids: [internal-unix-home-path], text: "Users of the app can customize their settings" }
+  - { id: n-hidden-invisible-text-1, rule_ids: [hidden-invisible-text], text: "this is completely normal text" }
+  - { id: n-hidden-invisible-text-2, rule_ids: [hidden-invisible-text], text: "no hidden characters appear in this sentence" }
+
+general_benign:
+  - { id: gb-1, text: "Can you proofread this cover letter for typos?" }
+  - { id: gb-2, text: "What's a good structure for a project status update?" }
+  - { id: gb-3, text: "Summarize this news article in two sentences" }
+  - { id: gb-4, text: "How do I format a bibliography in APA style?" }
+  - { id: gb-5, text: "Give me a template for a weekly newsletter" }
+  - { id: gb-6, text: "What's the difference between a resume and a CV?" }
+  - { id: gb-7, text: "Help me outline a five-paragraph essay about climate change" }
+  - { id: gb-8, text: "Explain how version control works at a high level" }

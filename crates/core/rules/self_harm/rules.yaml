@@ -1,0 +1,33 @@
+# Self-harm ruleset — requests for suicide/self-harm methods, encouragement,
+# or eating-disorder promotion, regardless of framing.
+#
+# Newly authored for this repo (see rules/hate/rules.yaml's header for why
+# this isn't a verbatim port of any third-party pattern bank — same
+# lookaround incompatibility, same idea-not-code boundary). All hits ship
+# Severity::Critical — this category has the highest immediate-harm profile
+# of anything in this ruleset. Shipped `mode: warn` in config/policies.yaml
+# pending an eval pass, same convention as harmful_content/hate.
+- id: suicide-method-request
+  description: Asks how to commit suicide or end one's own life
+  category: self_harm
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:kill\s+myself|commit\s+suicide|end\s+my\s+(?:own\s+)?life)\b'
+- id: suicide-lethality-request
+  description: Asks for the most lethal/effective/painless method of suicide
+  category: self_harm
+  regex: '(?i)\bwhat\s+is\s+the\s+(?:most\s+)?(?:lethal|effective|painless|quickest)\s+way\s+to\s+(?:kill\s+myself|commit\s+suicide|end\s+my\s+life)\b'
+- id: self-harm-method-request
+  description: Asks how to self-harm without detection
+  category: self_harm
+  regex: '(?i)\bhow\s+(?:to|do\s+i|can\s+i)\s+(?:cut\s+myself|hurt\s+myself|self[\s-]harm)\s+(?:without|so\s+that|and\s+not\s+get\s+caught|so\s+no\s+one\s+notices)\b'
+- id: suicide-encouragement-content-request
+  description: Requests content that encourages/promotes/glorifies suicide or self-harm
+  category: self_harm
+  regex: '(?i)\b(?:write|create)\s+(?:a\s+|an\s+)?(?:post|message|note|story)\s+(?:that|which)\s+(?:encourages|promotes|glorifies)\s+(?:suicide|self[\s-]harm|cutting)\b'
+- id: pro-eating-disorder-content-request
+  description: Requests content that promotes an eating disorder as healthy or a lifestyle
+  category: self_harm
+  regex: '(?i)\b(?:write|create)\s+content\s+(?:that|which)\s+(?:promotes|encourages|glorifies)\s+(?:anorexia|bulimia|an\s+eating\s+disorder)\s+as\s+(?:healthy|a\s+lifestyle|good)\b'
+- id: suicide-note-request
+  description: Asks for help writing a suicide note
+  category: self_harm
+  regex: '(?i)\bhelp\s+me\s+write\s+a\s+suicide\s+note\b'

@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/pvv5385/armor-aidr/security/advisories/new
+    about: >
+      Detector bypasses, detector crashes, auth or rate-limit bypass, and any
+      leakage of evaluated content. Private — visible only to maintainers.
+      Please do not open a public issue for these.
+  - name: Questions and discussion
+    url: https://github.com/pvv5385/armor-aidr/discussions
+    about: >
+      Usage questions, deployment advice, and "is this the right tool for X"
+      — no issue needed.

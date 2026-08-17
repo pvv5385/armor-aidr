@@ -1,0 +1,22 @@
+# Malicious-URL heuristic patterns, matched against the *authority*
+# (userinfo+host+port) segment of each URL found in the input, not the
+# whole URL — keeps false positives out of path/query text.
+#
+# `provider` names the CheckOptions toggle that enables the rule (mirrors
+# rules/secrets/rules.yaml's provider convention).
+- id: url-ip-literal-host
+  description: URL host is a bare IPv4 literal rather than a domain name — a
+    common phishing/C2 evasion of domain-reputation and allowlist checks.
+  provider: ip_literal_host
+  regex: '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$'
+- id: url-punycode-host
+  description: Host contains a punycode (`xn--`) label — used to register
+    homoglyph domains that visually spoof a trusted brand.
+  provider: punycode
+  regex: '(^|\.)xn--'
+- id: url-credentials-in-authority
+  description: URL embeds a `user:pass@` userinfo segment — used to make a
+    malicious host visually trail a trusted-looking prefix
+    (`trusted.com@evil.example`).
+  provider: credentials_in_url
+  regex: '@'

@@ -1,0 +1,507 @@
+# Regex-only PII detection: rule-based PII — email, phone, SSN/national-ID
+# formats, IBAN, regional identifiers.
+#
+# This is new code, not a port: the backend's `app/guardrails/checks/pii.py`
+# is Presidio+spaCy-backed (a local NER/ML pipeline), which is a heavier,
+# model-backed `armor-inference` equivalent, out of scope for this
+# rules-only detector. These are standard, widely-published pattern shapes
+# (RFC 5322-ish email, NANP phone, SSA SSN format, IBAN structure per ISO
+# 13616, government-published national-ID formats) — generic public
+# knowledge, not sourced from any vendor's product.
+#
+# Regional-identifier patterns below are authored directly from each
+# country's own published identifier specification (tax-authority PAN/TIN
+# formats, national statistics-office ID algorithms, central-bank IFSC/VAT
+# formats, etc.); the IPv6 pattern follows the address-text forms defined in
+# RFC 4291 §2.2, and the MAC-address pattern follows the EUI-48 form defined
+# by IEEE 802. Where a country publishes a check-digit algorithm (Verhoeff,
+# mod-11, mod-23, Luhn, ...) it's implemented here from that public
+# algorithm spec. The entity/option/validator/context_exclude schema below
+# is this codebase's own. `crates/core/src/detectors/checksums.rs`
+# implements the actual check-digit math from each country's public
+# algorithm spec.
+# Person names and free-text physical addresses are deliberately not
+# included — regex-only detection of either has a very high false-positive
+# rate and belongs behind real NER, not a static pattern list.
+# `credit_card` and `api_key` are deliberately not duplicated here either —
+# `pci.rs` and `secrets.rs` already own those categories respectively.
+#
+# `severity` is a per-rule override (default "medium" if omitted).
+# `case_insensitive: true` compiles the pattern with the `(?i)` flag.
+# `validator` names a check-digit/shape function in `detectors::checksums`
+# (or a small in-module one) run against the raw matched text; a match with
+# a named validator that fails is dropped, not just downgraded.
+# `context_exclude` is a regex checked against the ~30 characters immediately
+# before a match; a hit whose preceding context matches is suppressed as a
+# likely false positive (e.g. a date column suppresses an SSN-shaped match).
+
+# ---------- General contact / network ----------
+- id: email-address
+  description: Email address
+  entity: EMAIL_ADDRESS
+  option: email
+  regex: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+
+- id: phone-nanp-plus1
+  description: NANP phone number with +1 country code
+  entity: PHONE_NUMBER
+  option: phone
+  regex: '\+?1[-.\s]?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b'
+  context_exclude: '(?:postal|zip|account|serial|model|part|sku|item|product|quantity|qty|total|amount|version|code|id|lot|batch|tracking|confirmation|reference|ref|invoice|order)\s*[#:]?\s*$'
+- id: phone-nanp-parens
+  description: NANP phone number in (NXX) NXX-XXXX form
+  entity: PHONE_NUMBER
+  option: phone
+  regex: '\(\d{3}\)[-.\s]?\d{3}[-.\s]?\d{4}\b'
+  context_exclude: '(?:postal|zip|account|serial|model|part|sku|item|product|quantity|qty|total|amount|version|code|id|lot|batch|tracking|confirmation|reference|ref|invoice|order)\s*[#:]?\s*$'
+- id: phone-nanp-dashed
+  description: NANP phone number with consistent dash separators
+  entity: PHONE_NUMBER
+  option: phone
+  regex: '\b\d{3}-\d{3}-\d{4}\b'
+  context_exclude: '(?:postal|zip|account|serial|model|part|sku|item|product|quantity|qty|total|amount|version|code|id|lot|batch|tracking|confirmation|reference|ref|invoice|order)\s*[#:]?\s*$'
+- id: phone-nanp-dotted
+  description: NANP phone number with consistent dot separators
+  entity: PHONE_NUMBER
+  option: phone
+  regex: '\b\d{3}\.\d{3}\.\d{4}\b'
+  context_exclude: '(?:postal|zip|account|serial|model|part|sku|item|product|quantity|qty|total|amount|version|code|id|lot|batch|tracking|confirmation|reference|ref|invoice|order)\s*[#:]?\s*$'
+
+# The area-number group (first 3 digits) excludes 000, 666, and 900-999 per
+# the SSA's own published SSN format — those area numbers have never been
+# issued. Written as alternation rather than a negative-lookahead exclusion
+# since Rust's `regex` crate (this ruleset's target engine) has no lookaround
+# support. This also stops every 9XX-XX-XXXX ITIN (tax-id-itin below) from
+# double-firing as an SSN hit too, since 9xx is now out of this rule's range.
+- id: us-ssn-dashed
+  description: US Social Security Number (dash-separated, area number 001-899 excl. 666)
+  entity: US_SSN
+  option: ssn
+  severity: high
+  regex: '\b(?:00[1-9]|0[1-9][0-9]|[1-5][0-9]{2}|6(?:[0-5][0-9]|6[0-57-9]|[7-9][0-9])|[78][0-9]{2})-[0-9]{2}-[0-9]{4}\b'
+  context_exclude: '(?:ext|fax|phone|reference|ref|invoice|order|postal|zip|effective|issued?|expir|expire|birthday|born|dob|date|renewal)\s*[#:]?\s*$'
+- id: us-ssn-spaced
+  description: US Social Security Number (space-separated, area number 001-899 excl. 666)
+  entity: US_SSN
+  option: ssn
+  severity: high
+  regex: '\b(?:00[1-9]|0[1-9][0-9]|[1-5][0-9]{2}|6(?:[0-5][0-9]|6[0-57-9]|[7-9][0-9])|[78][0-9]{2}) [0-9]{2} [0-9]{4}\b'
+  context_exclude: '(?:ext|fax|phone|reference|ref|invoice|order|postal|zip|effective|issued?|expir|expire|birthday|born|dob|date|renewal)\s*[#:]?\s*$'
+
+- id: ipv4-address
+  description: IPv4 address
+  entity: IP_ADDRESS
+  option: ip_address
+  regex: '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
+- id: ipv6-address
+  description: IPv6 address
+  entity: IP_ADDRESS
+  option: ip_address
+  severity: low
+  regex: '(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:){3}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|::(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4}'
+
+- id: mac-address
+  description: MAC address (EUI-48, colon- or hyphen-delimited)
+  entity: MAC_ADDRESS
+  option: mac_address
+  severity: low
+  regex: '\b[0-9A-Fa-f]{2}(?:(?::[0-9A-Fa-f]{2}){5}|(?:-[0-9A-Fa-f]{2}){5})\b'
+
+# The BBAN is grouped in blocks of exactly 4 characters (optionally
+# `[\s-]?`-separated), with at most one shorter (1-3 char) trailing block —
+# real-world IBAN formatting (`DE89 3704 0044 0532 0130 00`), not an
+# arbitrary bound. The previous shape allowed a separator before *every
+# single* character, so it kept matching straight through a single space
+# into whatever word or number followed (a currency code, a BIC, an amount)
+# as if it were more of the account number — `iban_mod97` then (correctly)
+# rejects that corrupted, over-long span, so the real IBAN in front of it
+# never got credited with a hit either. Requiring 4-char blocks means a
+# following word only gets swallowed if it happens to abut with no
+# separator at all *and* happens to be a multiple of 4 characters (or fit
+# the final 1-3 slot) — far narrower than "any following text."
+- id: iban
+  description: International Bank Account Number (ISO 13616 structure, ISO 7064 mod-97 checksum validated)
+  entity: IBAN
+  option: iban
+  severity: high
+  validator: iban_mod97
+  regex: '\b[A-Z]{2}[0-9]{2}(?:[\s-]?[A-Z0-9]{4}){2,7}(?:[\s-]?[A-Z0-9]{1,3})?\b'
+
+# Keyword-anchored, unlike most of this file's bare-digit patterns: a bare
+# 8-17 digit number has no distinctive shape at all (no country prefix, no
+# checksum a US bank enforces) and firing on any digit run in that range is
+# unusable — matches invoice numbers, phone extensions, timestamps, etc. The
+# "account"/"acct" keyword requirement mirrors medical-record-number and
+# health-insurance-id's own keyword-anchored pattern below.
+#
+# The digits allow a single space or dash between any two of them (not just
+# one contiguous run): real account numbers are routinely written grouped —
+# "1234-5678-9012" or "1234 5678 9012 3456" — and a plain [0-9]{8,17} missed
+# every one of those, the same gap the IBAN rule above had.
+- id: bank-account-us
+  description: US bank account number (8-17 digits, keyword-anchored, optionally
+    grouped with spaces or dashes)
+  entity: BANK_ACCOUNT
+  option: bank_account
+  severity: high
+  case_insensitive: true
+  regex: '\b(?:account|acct\.?|bank\s*account)\s*(?:number|no\.?|#)?[:\s#]*[0-9](?:[ -]?[0-9]){7,16}\b'
+
+# ---------- Identity documents (generic / US) ----------
+- id: passport-number
+  description: Passport number (US/international common formats)
+  entity: PASSPORT
+  option: passport
+  severity: high
+  regex: '\b[A-Z]{1,2}[0-9]{6,9}\b'
+- id: drivers-license-generic
+  description: Driver's license number (generic US state format)
+  entity: DRIVERS_LICENSE
+  option: drivers_license
+  severity: high
+  regex: '\b[A-Z]{1,2}[0-9]{5,8}\b'
+- id: national-id-generic
+  description: National ID number (generic international format)
+  entity: NATIONAL_ID
+  option: national_id
+  severity: high
+  regex: '\b[A-Z]{2}[0-9]{7,10}[A-Z]?\b'
+- id: tax-id-itin
+  description: US ITIN (9XX-XX-XXXX)
+  entity: TAX_ID
+  option: tax_id
+  severity: high
+  regex: '\b9[0-9]{2}-[0-9]{2}-[0-9]{4}\b'
+- id: tax-id-ein
+  description: US EIN (XX-XXXXXXX)
+  entity: TAX_ID
+  option: tax_id
+  severity: high
+  regex: '\b[0-9]{2}-[0-9]{7}\b'
+
+# ---------- Vehicle / device / crypto identifiers ----------
+- id: vin
+  description: Vehicle Identification Number
+  entity: VIN
+  option: vin
+  regex: '\b[A-HJ-NPR-Z0-9]{17}\b'
+- id: gps-coordinates
+  description: Bracketed GPS coordinate pair
+  entity: GPS_COORDINATES
+  option: gps_coordinates
+  regex: '\[-?\d{1,3}\.\d{1,8},\s*-?\d{1,3}\.\d{1,8}\]'
+- id: imei
+  description: IMEI number (dashed format)
+  entity: IMEI
+  option: imei
+  regex: '\b\d{2}-\d{6}-\d{6}-\d\b'
+- id: ethereum-address
+  description: Ethereum wallet address
+  entity: CRYPTO_WALLET
+  option: ethereum_address
+  severity: high
+  regex: '\b0x[0-9A-Fa-f]{40}\b'
+- id: bitcoin-address
+  description: Bitcoin wallet address (P2PKH/P2SH/bech32)
+  entity: CRYPTO_WALLET
+  option: bitcoin_address
+  severity: high
+  regex: '\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b|\bbc1[a-z0-9]{39,59}\b'
+
+# ---------- Web / account identifiers ----------
+- id: username-handle
+  description: '@handle-style username'
+  entity: USERNAME
+  option: username
+  severity: low
+  regex: '@[A-Za-z0-9_]{3,30}\b'
+- id: masked-card-number
+  description: Masked/partially-redacted card or account number
+  entity: MASKED_NUMBER
+  option: masked_number
+  regex: '\b(?:X{4}[\s-]){2,3}X{4}[\s-]\d{4}\b|\*{4}[\s-]?\*{4}[\s-]?\*{4}[\s-]?\d{4}\b|\b\d{4}[\s-]\*{4}[\s-]\*{4}[\s-]\d{4}\b'
+- id: browser-user-agent
+  description: Browser User-Agent string
+  entity: USER_AGENT
+  option: user_agent
+  severity: low
+  case_insensitive: true
+  regex: 'Mozilla/\d\.\d\s*\([^)]{10,}\)'
+
+# ---------- Personal / healthcare ----------
+- id: date-of-birth-numeric
+  description: Numeric date of birth (MM/DD/YYYY, YYYY/MM/DD, DD/MM/YYYY)
+  entity: DATE_OF_BIRTH
+  option: date_of_birth
+  regex: '\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12][0-9]|3[01])[/-](?:19|20)[0-9]{2}\b|\b(?:19|20)[0-9]{2}[/-](?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12][0-9]|3[01])\b'
+- id: medical-record-number
+  description: Medical record / patient ID number
+  entity: MEDICAL_RECORD
+  option: medical_record
+  severity: high
+  case_insensitive: true
+  regex: '\b(?:MRN|Medical Record|Patient ID)[:\s#]*[A-Z0-9]{6,12}\b'
+- id: health-insurance-id
+  description: Health insurance member/policy ID
+  entity: HEALTH_INSURANCE
+  option: health_insurance_id
+  severity: high
+  case_insensitive: true
+  regex: '\b(?:Member ID|Policy|Insurance ID|Subscriber)[:\s#]*[A-Z0-9]{8,15}\b'
+
+# ---------- Regional identifiers — India ----------
+- id: in-pan
+  description: India PAN (3 free letters + 1 holder-type letter + 1 surname-initial letter + 4 digits + 1 check letter)
+  entity: IN_PAN
+  option: in_pan
+  severity: high
+  # The 4th character of a PAN is not an arbitrary letter — the Income Tax
+  # Department restricts it to a fixed set of holder-type codes: P/individual,
+  # C/company, H/HUF, F/firm-LLP, A/AOP, T/trust, B/BOI, L/local authority,
+  # J/artificial juridical person, G/government, E/LLP.
+  regex: '\b[A-Z]{3}[ABCEFGHJLPT][A-Z][0-9]{4}[A-Z]\b'
+- id: in-aadhaar
+  description: India Aadhaar (12 digits, Verhoeff checksum)
+  entity: IN_AADHAAR
+  option: in_aadhaar
+  severity: high
+  validator: verhoeff
+  regex: '\b[2-9][0-9]{3}(?:[ -]?[0-9]{4}){2}\b'
+- id: in-gstin
+  description: India GSTIN (state code + embedded PAN + entity code + fixed Z + checksum)
+  entity: IN_GSTIN
+  option: in_gstin
+  severity: high
+  regex: '\b[0-9]{2}[A-Z]{3}[ABCEFGHJLPT][A-Z][0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]\b'
+- id: in-ifsc
+  description: India IFSC bank branch code
+  entity: IN_IFSC
+  option: in_ifsc
+  regex: '\b[A-Z]{2}[A-Z]{2}0(?:[A-Z0-9]{3}){2}\b'
+- id: in-upi
+  description: India UPI virtual payment address
+  entity: IN_UPI
+  option: in_upi
+  # A UPI VPA is user@provider with no further dot — the following-context
+  # check rejects matches that are actually the local@domain prefix of a
+  # full email address (a dot right after means "domain.tld", i.e. email).
+  context_exclude_after: '^\.'
+  regex: '\b[0-9A-Za-z_.-]{3,64}@[A-Za-z]{2,20}\b'
+
+# ---------- Regional identifiers — United Kingdom ----------
+- id: uk-nino
+  description: UK National Insurance Number
+  entity: UK_NINO
+  option: uk_nino
+  severity: high
+  # Prefix letters exclude D, F, I, Q, U, V in the first position and
+  # additionally O in the second position, per HMRC's published NINO format.
+  regex: '\b[A-CEG-HJ-NOPR-TW-Z][A-CEG-HJ-NPR-TW-Z](?:\s?[0-9]{2}){3}\s?[A-D]\b'
+- id: uk-utr
+  description: UK Unique Taxpayer Reference
+  entity: UK_UTR
+  option: uk_utr
+  case_insensitive: true
+  regex: '\bUTR[:\s#]*[0-9]{5}[0-9]{5}\b'
+- id: uk-nhs
+  description: UK NHS number (mod-11 checksum)
+  entity: UK_NHS
+  option: uk_nhs
+  severity: high
+  validator: uk_nhs
+  regex: '\b(?:[0-9]{3}[\s-]?){2}[0-9]{4}\b'
+- id: uk-vat
+  description: UK VAT number
+  entity: UK_VAT
+  option: uk_vat
+  regex: '\bGB\s?[0-9]{3}[0-9]{3}[0-9]{3}(?:\s?[0-9]{3})?\b'
+
+# ---------- Regional identifiers — EU ----------
+- id: de-vat
+  description: Germany VAT number
+  entity: DE_VAT
+  option: de_vat
+  regex: '\bDE\s?[0-9]{4}[0-9]{5}\b'
+- id: fr-vat
+  description: France VAT number
+  entity: FR_VAT
+  option: fr_vat
+  regex: '\bFR\s?[0-9A-HJ-NP-Z]{2}\s?(?:[0-9]{3}){3}\b'
+- id: it-vat
+  description: Italy VAT number
+  entity: IT_VAT
+  option: it_vat
+  regex: '\bIT\s?[0-9]{7}[0-9]{4}\b'
+- id: nl-vat
+  description: Netherlands VAT number
+  entity: NL_VAT
+  option: nl_vat
+  regex: '\bNL\s?(?:[0-9]{3}){3}B[0-9]{2}\b'
+- id: es-vat
+  description: Spain VAT number
+  entity: ES_VAT
+  option: es_vat
+  regex: '\bES\s?[0-9A-Z][0-9]{7}[0-9A-Z]\b'
+- id: be-vat
+  description: Belgium VAT number
+  entity: BE_VAT
+  option: be_vat
+  regex: '\bBE\s?0?[0-9]{4}[0-9]{5}\b'
+- id: nl-bsn
+  description: Netherlands BSN (11-proef checksum)
+  entity: NL_BSN
+  option: nl_bsn
+  severity: high
+  validator: nl_bsn
+  regex: '\b[1-9][0-9]{4}[0-9]{4}\b'
+- id: it-codice-fiscale
+  description: Italy Codice Fiscale (surname consonants+vowels, given-name consonants+vowels, YY, month letter, DD, birthplace letter+code, check letter)
+  entity: IT_CF
+  option: it_cf
+  severity: high
+  # The month-of-birth letter is restricted to the fixed A-E,H,L,M,P,R,S,T
+  # set published by the Agenzia delle Entrate (one letter per calendar
+  # month, deliberately non-sequential so the field can't be confused with
+  # a day-of-month digit).
+  regex: '\b[A-Z]{3}[A-Z]{3}[0-9]{2}[ABCDEHLMPRST][0-9]{2}[A-Z][0-9]{3}[A-Z]\b'
+- id: dk-cpr
+  description: Denmark CPR number (DDMMYY + 4-digit serial)
+  entity: DK_CPR
+  option: dk_cpr
+  severity: high
+  regex: '\b(?:0[1-9]|1[0-9]|2[0-9]|3[01])(?:0[1-9]|1[0-2])[0-9]{2}[-\s]?[0-9]{2}[0-9]{2}\b'
+- id: ro-cnp
+  description: Romania CNP (sex/century digit + YYMMDD + county + serial + check)
+  entity: RO_CNP
+  option: ro_cnp
+  severity: high
+  regex: '\b[1-8][0-9]{2}(?:0[1-9]|10|11|12)(?:0[1-9]|1[0-9]|2[0-9]|3[01])[0-9]{2}[0-9]{3}[0-9]\b'
+- id: pl-pesel
+  description: Poland PESEL (date-encoded birth digits + 5-digit serial/check)
+  entity: PL_PESEL
+  option: pl_pesel
+  severity: high
+  regex: '\b[0-9]{2}(?:0[1-9]|1[0-2]|2[1-9]|3[0-2])(?:0[1-9]|1[0-9]|2[0-9]|3[01])[0-9]{4}[0-9]\b'
+- id: gr-amka
+  description: Greece AMKA (DDMMYY + 5-digit serial)
+  entity: GR_AMKA
+  option: gr_amka
+  severity: high
+  regex: '\b(?:0[1-9]|1[0-9]|2[0-9]|3[01])(?:0[1-9]|10|11|12)[0-9]{7}\b'
+- id: es-nif
+  description: Spain NIF (8 digits + letter) / NIE (X/Y/Z + 7 digits + letter), mod-23 letter checksum
+  entity: ES_NIF
+  option: es_nif
+  severity: high
+  validator: es_nif
+  regex: '\b(?:[XYZ][0-9]{7}|[0-9]{8})[A-Z]\b'
+
+# ---------- Regional identifiers — APAC ----------
+- id: sg-nric
+  description: Singapore NRIC/FIN
+  entity: SG_NRIC
+  option: sg_nric
+  severity: high
+  regex: '\b[FGST][0-9]{3}[0-9]{4}[A-Z]\b'
+- id: my-ic
+  description: Malaysia IC number (YYMMDD + 2-digit birthplace + 4-digit serial)
+  entity: MY_IC
+  option: my_ic
+  severity: high
+  regex: '\b[0-9]{2}[0-9]{2}[0-9]{2}[-\s][0-9]{2}[-\s]?[0-9]{4}\b'
+- id: th-id
+  description: Thailand national ID
+  entity: TH_ID
+  option: th_id
+  severity: high
+  regex: '\b[0-9][-\s][0-9]{2}[0-9]{2}[-\s]?[0-9]{3}[0-9]{2}[-\s]?[0-9]{2}[-\s]?[0-9]\b'
+- id: ph-tin
+  description: Philippines TIN
+  entity: PH_TIN
+  option: ph_tin
+  severity: high
+  regex: '\b[0-9]{3}[-\s](?:[0-9]{3}[-\s]?){2}[0-9]{3}\b'
+- id: id-ktp
+  description: Indonesia KTP/NIK (province+regency+district+DDMMYY+serial, date-sanity checked)
+  entity: ID_KTP
+  option: id_ktp
+  severity: high
+  validator: id_ktp_date_sanity
+  regex: '\b[0-9]{2}[0-9]{2}[0-9]{2}[0-9]{2}[0-9]{2}[0-9]{2}[0-9]{4}\b'
+- id: tw-id
+  description: Taiwan national ID
+  entity: TW_ID
+  option: tw_id
+  severity: high
+  regex: '\b[A-Z][12][0-9]{4}[0-9]{4}\b'
+- id: jp-mynumber
+  description: Japan My Number
+  entity: JP_MYNUMBER
+  option: jp_mynumber
+  severity: high
+  case_insensitive: true
+  regex: '\bMyNumber[:\s#]*\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'
+- id: au-tfn
+  description: Australia Tax File Number (weighted mod-11 checksum)
+  entity: AU_TFN
+  option: au_tfn
+  severity: high
+  case_insensitive: true
+  validator: au_tfn
+  regex: '\bTFN[:\s#]*(?:[0-9]{3}[\s-]?){2}[0-9]{2,3}\b'
+- id: au-abn
+  description: Australia Business Number (weighted mod-89 checksum)
+  entity: AU_ABN
+  option: au_abn
+  case_insensitive: true
+  validator: au_abn
+  regex: '\bABN[:\s#]*[0-9]{2}[\s-]?(?:[0-9]{3}[\s-]?){2}[0-9]{3}\b'
+- id: au-acn
+  description: Australia Company Number (weighted mod-10 checksum)
+  entity: AU_ACN
+  option: au_acn
+  case_insensitive: true
+  validator: au_acn
+  regex: '\bACN[:\s#]*(?:[0-9]{3}[\s-]?){2}[0-9]{3}\b'
+- id: hk-id
+  description: Hong Kong HKID
+  entity: HK_ID
+  option: hk_id
+  severity: high
+  regex: '\b[A-Z]{1,2}[0-9]{3}[0-9]{3}[(\[][0-9A][)\]]'
+
+# ---------- Regional identifiers — Americas ----------
+- id: ca-sin
+  description: Canada Social Insurance Number (Luhn checksum)
+  entity: CA_SIN
+  option: ca_sin
+  severity: high
+  case_insensitive: true
+  validator: luhn
+  regex: '\b(?:SIN|NAS)[:\s#]*(?:[0-9]{3}[-\s]?){2}[0-9]{3}\b'
+- id: br-cpf
+  description: Brazil CPF (mod-11 checksum)
+  entity: BR_CPF
+  option: br_cpf
+  severity: high
+  validator: cpf
+  regex: '\b(?:[0-9]{3}\.?){2}[0-9]{3}-?[0-9]{2}\b'
+- id: br-cnpj
+  description: Brazil CNPJ (mod-11 checksum)
+  entity: BR_CNPJ
+  option: br_cnpj
+  severity: high
+  validator: cnpj
+  regex: '\b[0-9]{2}\.?[0-9]{3}\.?[0-9]{3}/?[0-9]{4}-?[0-9]{2}\b'
+- id: mx-curp
+  description: Mexico CURP (4 letters + YYMMDD + sex letter + 2-letter state + 3 consonants + homoclave + check digit)
+  entity: MX_CURP
+  option: mx_curp
+  severity: high
+  regex: '\b[A-Z]{4}[0-9]{2}[0-9]{2}[0-9]{2}[HM][A-Z]{2}[A-Z]{3}[A-Z0-9][0-9]\b'
+- id: mx-rfc
+  description: Mexico RFC
+  entity: MX_RFC
+  option: mx_rfc
+  severity: high
+  regex: '\b[&A-ZÑ]{3,4}[0-9]{2}[0-9]{2}[0-9]{2}[A-Z0-9]{3}\b'

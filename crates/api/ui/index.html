@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Armor — Control Plane</title>
+<link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+<div id="login-screen" class="login-screen">
+  <div class="login-brand-panel">
+    <div class="login-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2 4 5v6c0 5 3.4 8.7 8 9 4.6-.3 8-4 8-9V5l-8-3Z"/>
+        </svg>
+      </span>
+      <span class="login-title">AI Armor</span>
+      <span class="login-subtitle">Control Plane</span>
+    </div>
+  </div>
+  <div class="login-form-panel">
+    <form id="login-form" class="login-form">
+      <label>API Key <input id="login-apikey" type="password" autocomplete="off"></label>
+      <div id="login-error" class="error hidden"></div>
+      <button type="submit" class="primary login-submit">Sign in</button>
+    </form>
+    <p class="login-hint">Enter a key from <code>ARMOR_API_KEYS</code>. If <code>ARMOR_AUTH_MODE=none</code>, any value (or none) is accepted.</p>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2 4 5v6c0 5 3.4 8.7 8 9 4.6-.3 8-4 8-9V5l-8-3Z"/>
+        </svg>
+      </span>
+      <span class="brand-text">AI Armor</span>
+    </div>
+    <nav class="nav">
+      <a class="nav-item active" data-tab="overview" href="/ui/dashboard">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Overview</span>
+      </a>
+      <a class="nav-item" data-tab="profiles" href="/ui/profiles">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 6v5c0 4.5 3.1 7.8 8 9 4.9-1.2 8-4.5 8-9V6l-8-3Z"/></svg>
+        <span>Profiles</span>
+      </a>
+      <a class="nav-item" data-tab="applications" href="/ui/applications">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+        <span>Applications</span>
+      </a>
+      <a class="nav-item" data-tab="inference" href="/ui/inference">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M4 9h2M4 15h2M18 9h2M18 15h2M9 4v2M15 4v2M9 18v2M15 18v2"/></svg>
+        <span>Inference</span>
+      </a>
+      <a class="nav-item" data-tab="test" href="/ui/test">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Test</span>
+      </a>
+      <a class="nav-item" data-tab="logs" href="/ui/logs">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+        <span>Logs</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span id="db-status" class="db-status">database: connecting…</span>
+      <span id="inference-status" class="db-status">inference: —</span>
+      <button id="signout-btn" type="button" class="signout-btn">Sign out</button>
+    </div>
+  </aside>
+
+  <div class="main-wrap">
+    <header class="topbar">
+      <h1 id="page-title">Overview</h1>
+    </header>
+
+    <main>
+      <div id="global-error" class="error hidden"></div>
+
+      <section id="tab-overview" class="tab">
+        <div class="overview-toolbar">
+          <div class="range-selector" role="group" aria-label="Date range">
+            <button type="button" class="range-btn active" data-range="24h">Last 24h</button>
+            <button type="button" class="range-btn" data-range="7d">Last 7 days</button>
+            <button type="button" class="range-btn" data-range="30d">Last 30 days</button>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card"><div class="stat-label">Profiles</div><div class="stat-value" id="stat-profiles">—</div></div>
+          <div class="stat-card"><div class="stat-label">Applications</div><div class="stat-value" id="stat-applications">—</div></div>
+          <div class="stat-card"><div class="stat-label">Requests</div><div class="stat-value" id="stat-requests">—</div></div>
+          <div class="stat-card"><div class="stat-label">Avg latency</div><div class="stat-value" id="stat-latency">—</div></div>
+        </div>
+
+        <div class="panel">
+          <h2>Requests by verdict</h2>
+          <div id="area-chart" class="chart"></div>
+        </div>
+
+        <div class="panel-grid">
+          <div class="panel">
+            <h2>Verdict split</h2>
+            <div id="donut-chart" class="chart donut-chart"></div>
+          </div>
+          <div class="panel">
+            <h2>Recent activity</h2>
+            <ul id="recent-activity" class="activity-list"></ul>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Top detectors <span class="muted">(fired)</span></h2>
+          <div id="top-detectors" class="detector-list"></div>
+        </div>
+      </section>
+
+      <section id="tab-inference" class="tab hidden">
+        <div class="panel-header">
+          <h2>Hardware</h2>
+        </div>
+        <div class="hardware-columns">
+          <div class="panel hardware-panel">
+            <h3>Core <span class="muted">armor-api</span></h3>
+            <div id="hw-core-empty" class="chart-empty hidden"></div>
+            <div id="hw-core-body" class="hidden">
+              <div class="hardware-stat-row">
+                <div><div class="stat-label">CPU</div><div class="stat-value stat-value-sm" id="hw-core-cpu">—</div></div>
+                <div><div class="stat-label">Cores</div><div class="stat-value stat-value-sm" id="hw-core-cores">—</div></div>
+                <div><div class="stat-label">Memory</div><div class="stat-value stat-value-sm" id="hw-core-memory">—</div></div>
+                <div><div class="stat-label">GPU</div><div class="stat-value stat-value-sm" id="hw-core-gpu">—</div></div>
+              </div>
+              <dl class="hardware-detail-list" id="hw-core-detail"></dl>
+            </div>
+          </div>
+          <div class="panel hardware-panel">
+            <h3>Inference <span class="muted">sidecar</span></h3>
+            <div id="hw-inference-empty" class="chart-empty hidden"></div>
+            <div id="hw-inference-body" class="hidden">
+              <div class="hardware-stat-row">
+                <div><div class="stat-label">CPU</div><div class="stat-value stat-value-sm" id="hw-inference-cpu">—</div></div>
+                <div><div class="stat-label">Cores</div><div class="stat-value stat-value-sm" id="hw-inference-cores">—</div></div>
+                <div><div class="stat-label">Memory</div><div class="stat-value stat-value-sm" id="hw-inference-memory">—</div></div>
+                <div><div class="stat-label">GPU</div><div class="stat-value stat-value-sm" id="hw-inference-gpu">—</div></div>
+              </div>
+              <dl class="hardware-detail-list" id="hw-inference-detail"></dl>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-header">
+          <h2>Inference service</h2>
+        </div>
+        <div class="card">
+          <div id="inference-empty" class="chart-empty hidden"></div>
+          <div class="inference-table-scroll">
+            <table id="inference-table" class="hidden">
+              <thead><tr><th>Task</th><th>Model</th><th>Status</th><th></th></tr></thead>
+              <tbody id="inference-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-profiles" class="tab hidden">
+        <div class="panel-header">
+          <h2>Profiles</h2>
+          <button id="new-profile-btn" class="primary">+ New profile</button>
+        </div>
+        <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Description</th><th>Checks</th><th>Updated</th><th></th></tr></thead>
+          <tbody id="profiles-tbody"></tbody>
+        </table>
+        </div>
+
+        <div id="profile-editor" class="editor hidden">
+          <h3 id="profile-editor-title">New profile</h3>
+          <div class="field-row">
+            <label>ID <input id="profile-id" type="text" placeholder="e.g. strict-pii"></label>
+            <label>Description <input id="profile-description" type="text"></label>
+          </div>
+          <div class="field-row">
+            <label>Execution mode
+              <select id="profile-execution-mode">
+                <option value="parallel">parallel</option>
+                <option value="sequential">sequential</option>
+              </select>
+            </label>
+            <label>Fail mode
+              <select id="profile-fail-mode">
+                <option value="fail_open">fail_open</option>
+                <option value="fail_closed">fail_closed</option>
+              </select>
+            </label>
+          </div>
+
+          <h4>Checks</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th><th>Enabled</th><th>Mode</th><th>On fail</th>
+                <th>Options</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="checks-tbody"></tbody>
+          </table>
+          <button id="add-check-btn" type="button">+ Add check</button>
+
+          <div id="profile-editor-error" class="error hidden"></div>
+          <div class="editor-actions">
+            <button id="save-profile-btn" class="primary">Save profile</button>
+            <button id="cancel-profile-btn" type="button">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-applications" class="tab hidden">
+        <div class="panel-header">
+          <h2>Applications</h2>
+          <button id="new-application-btn" class="primary">+ New application</button>
+        </div>
+        <div class="card">
+        <table>
+          <thead><tr><th>Application ID</th><th>Name</th><th>Profile</th><th>Updated</th><th></th></tr></thead>
+          <tbody id="applications-tbody"></tbody>
+        </table>
+        </div>
+
+        <div id="application-editor" class="editor hidden">
+          <h3 id="application-editor-title">New application</h3>
+          <div class="field-row">
+            <label>Application ID <input id="application-id" type="text" placeholder="e.g. travel-assistant-prod"></label>
+            <label>Name <input id="application-name" type="text"></label>
+            <label>Profile <select id="application-profile-id"></select></label>
+          </div>
+          <div id="application-editor-error" class="error hidden"></div>
+          <div class="editor-actions">
+            <button id="save-application-btn" class="primary">Save application</button>
+            <button id="cancel-application-btn" type="button">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-test" class="tab hidden">
+        <div id="test-inference-warning" class="warning-banner hidden"></div>
+        <div class="test-page">
+          <div class="test-pane test-input-pane">
+            <form id="chat-form" class="test-input-form">
+              <div class="test-pane-header">
+                <h2>Prompt</h2>
+                <div class="test-header-controls">
+                  <label class="test-example-select">
+                    <span class="filter-label">Example</span>
+                    <select id="chat-example-select">
+                      <option value="">Load an example…</option>
+                      <optgroup label="Expected: allow">
+                        <option value="allow:0">Example 1</option>
+                        <option value="allow:1">Example 2</option>
+                        <option value="allow:2">Example 3</option>
+                      </optgroup>
+                      <optgroup label="Expected: deny">
+                        <option value="deny:0">Example 1</option>
+                        <option value="deny:1">Example 2</option>
+                        <option value="deny:2">Example 3</option>
+                      </optgroup>
+                    </select>
+                  </label>
+                  <label class="test-app-select">
+                    <span class="filter-label">Application</span>
+                    <select id="chat-application-id">
+                      <option value="">default</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <textarea id="chat-input" placeholder="Paste a prompt to scan against the selected application's policy…"></textarea>
+              <div class="test-actions">
+                <button id="chat-new-btn" type="button" class="ghost">Clear</button>
+                <button id="chat-send-btn" type="submit" class="primary">Run scan</button>
+              </div>
+              <div id="chat-error" class="error hidden"></div>
+            </form>
+          </div>
+
+          <div class="test-pane test-result-pane">
+            <div class="test-pane-header">
+              <h2>Result</h2>
+            </div>
+            <div id="chat-messages" class="test-results">
+              <div class="chat-empty-state">
+                <div class="chat-empty-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div class="chat-empty-title">Test a prompt against a policy</div>
+                <div class="chat-empty-sub">Paste a prompt on the left, pick an application, and run a scan. The verdict, fired detectors, and timing will appear here.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-logs" class="tab hidden">
+        <div class="panel-header">
+          <h2>Logs</h2>
+          <span id="logs-summary" class="logs-summary"></span>
+        </div>
+        <form id="logs-filters" class="logs-filters">
+          <div class="logs-filters-grid">
+            <label class="filter-field">
+              <span class="filter-label">From</span>
+              <input id="logs-filter-from" type="date">
+            </label>
+            <label class="filter-field">
+              <span class="filter-label">To</span>
+              <input id="logs-filter-to" type="date">
+            </label>
+            <label class="filter-field">
+              <span class="filter-label">Application ID</span>
+              <input id="logs-filter-application" type="text" placeholder="e.g. travel-assistant">
+            </label>
+            <label class="filter-field">
+              <span class="filter-label">Scan ID</span>
+              <input id="logs-filter-scan-id" type="text" placeholder="exact match">
+            </label>
+          </div>
+          <div class="logs-filters-actions">
+            <button id="logs-refresh-btn" type="submit" class="primary">Search</button>
+            <button id="logs-clear-btn" type="button" class="ghost">Clear</button>
+          </div>
+        </form>
+        <div class="card logs-card">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Time</th><th>Scan ID</th><th>Verdict</th><th>Application</th><th>Profile</th>
+              <th>Stage</th><th>Latency</th><th>Checks fired</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody"></tbody>
+        </table>
+        </div>
+        <div id="logs-pagination" class="logs-pagination"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+<aside id="log-drawer" class="drawer hidden">
+  <div class="drawer-header">
+    <h3>Scan detail</h3>
+    <button id="drawer-close-btn" type="button" class="icon-btn" aria-label="Close">&times;</button>
+  </div>
+  <div id="drawer-body" class="drawer-body"></div>
+</aside>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>
