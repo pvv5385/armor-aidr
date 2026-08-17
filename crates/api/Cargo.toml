@@ -59,7 +59,7 @@ lru = "0.16"
 ipnet = "2"
 # Redis-backed distributed rate-limit backend (middleware/redis_rate_limit.rs).
 redis.workspace = true
-sha2 = "0.10"
+sha2 = "0.11"
 subtle = "2.5"
 arc-swap = "1"
 
