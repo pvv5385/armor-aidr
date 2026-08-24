@@ -5,9 +5,10 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Self-hosted, auditable LLM guardrails — deterministic rules first, with an ML
-classifier tier and a deep-semantic judge layered in behind it. Both are served
-by one separate deployable, `armor-inference`; the judge is a task inside it,
-not a second service.
+classifier tier behind them, served by one optional separate deployable,
+`armor-inference`. A deep-semantic judge is a designed-for seam in that sidecar
+(the `guard_llm` runner kind), not a capability that ships today — see
+[`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md).
 
 - [`LICENSE`](LICENSE) — Apache License 2.0, covering the whole repository
 - [`SECURITY.md`](SECURITY.md) — reporting a vulnerability, and what's in scope
@@ -85,7 +86,7 @@ flowchart LR
     Core -->|"local_ml strategy,\nARMOR_INFERENCE_URL set"| Inference
 
     subgraph Sidecar["armor-inference — optional (Python/FastAPI)"]
-        Inference["ONNX runners:\nprompt injection, toxicity,\nover-refusal, PII NER,\ntopic/intent, judge"]
+        Inference["ONNX runners:\nprompt injection, toxicity,\nover-refusal, PII NER,\ntopic/intent"]
     end
 
     CP --> Storage
@@ -117,8 +118,8 @@ with `ARMOR_UI_ENABLED=false`.
   holds a gRPC definition for a future transport swap behind the same trait.
 - **`inference/` (`armor-inference`)** — the optional ML sidecar
   (Python/FastAPI) with ONNX runners for prompt injection, toxicity,
-  over-refusal, PII NER, and topic/intent, plus the deep-semantic judge task.
-  Not a Cargo workspace member — see [`inference/README.md`](inference/README.md).
+  over-refusal, PII NER, and topic/intent. Not a Cargo workspace member — see
+  [`inference/README.md`](inference/README.md).
 - **`rules/`** — language-neutral detector patterns (YAML), not Rust. A
   convenience symlink to the real location, `crates/core/rules/`, which is
   where the detectors embed them from at compile time
@@ -266,6 +267,28 @@ fail-fast posture as `ARMOR_AUTH_MODE=api_key` requiring `ARMOR_API_KEYS`. A
 Redis outage after startup fails **open** (requests are allowed, with a
 `warn!` log) rather than failing the whole API.
 
+### What a budget is counted against
+
+With `ARMOR_AUTH_MODE=none` (the default) every request is counted against
+its client IP, resolved as described above.
+
+With `ARMOR_AUTH_MODE=api_key`, a request presenting a **valid** key is
+counted against that key instead, so two callers sharing one office NAT get a
+budget each rather than splitting one. A request with no key, or with a key
+that is not in `ARMOR_API_KEYS`, still counts against its IP.
+
+That distinction is load-bearing, not an optimization. Bucketing on whichever
+key a caller *claims* would be a bypass: send a fresh random key per request
+and every request starts a brand-new full bucket. Only a key that
+authentication would actually accept earns a budget of its own; everything
+else stays on the IP bucket, which cannot be minted at will.
+
+One consequence worth planning around: a single key spent from many hosts
+shares one budget, because the bucket follows the credential rather than the
+address. That is the intended behavior — it is what makes a leaked key
+rate-limited rather than unlimited — but it means a fleet of workers sharing
+one key needs `ARMOR_RATE_LIMIT_RPS` sized for the fleet, not for one worker.
+
 ## Testing guardrails
 
 Once `armor-api` is running, exercise the engine directly against
@@ -273,11 +296,26 @@ Once `armor-api` is running, exercise the engine directly against
 (see `crates/api/src/aidr.rs`'s `AidrScanRequest` for the full request
 schema). Default settings (`ARMOR_AUTH_MODE=none`) need no auth header.
 
-**Health check:**
+**Health checks:** two probes with different jobs — point a Kubernetes
+`livenessProbe` at the first and a `readinessProbe` at the second.
+
 ```bash
-curl http://localhost:8100/healthz
-curl http://localhost:8100/readyz
+curl http://localhost:8100/healthz   # liveness  — 200 whenever the process is up
+curl http://localhost:8100/readyz    # readiness — 200 {"status":"ready"}, or 503
 ```
+
+`/healthz` is unconditional: a restart is the only thing a liveness failure
+can fix, and restarting `armor-api` does not fix a database outage.
+
+`/readyz` answers "should a load balancer send this replica traffic", and
+returns `503 {"status":"not_ready","dependency":"database"}` when
+`DATABASE_URL` is configured but the pool cannot answer within 2s. It is
+deliberately *not* gated on the Redis rate limiter (which fails open — an
+outage allows requests rather than breaking them) or on the inference sidecar
+(optional, and absorbed by the circuit breaker and each check's `fallback`);
+taking a replica out of rotation for either would cost capacity without
+restoring anything. Neither probe requires an API key. See `readyz`'s doc
+comment in `crates/api/src/routes.rs` for the full reasoning.
 
 **Benign request — should ALLOW** (OpenAI chat-completions-compatible
 shape — `request_id`/`application`/`user_id` at the root, `messages` array;

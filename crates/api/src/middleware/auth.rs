@@ -24,33 +24,43 @@ pub async fn require_api_key(
         return Ok(next.run(req).await);
     };
 
-    match extract_key(&req) {
-        Some(key) => {
-            use sha2::{Digest, Sha256};
-            use subtle::ConstantTimeEq;
-
-            let mut hasher = Sha256::new();
-            hasher.update(key.as_bytes());
-            let request_hash: [u8; 32] = hasher.finalize().into();
-
-            let mut matched = false;
-            for valid_hash in keys.iter() {
-                if valid_hash.ct_eq(&request_hash).into() {
-                    matched = true;
-                }
-            }
-
-            if matched {
-                Ok(next.run(req).await)
-            } else {
-                Err(StatusCode::UNAUTHORIZED)
-            }
-        }
-        _ => Err(StatusCode::UNAUTHORIZED),
+    match extract_key(&req).and_then(|key| match_key(keys, &key)) {
+        Some(_) => Ok(next.run(req).await),
+        None => Err(StatusCode::UNAUTHORIZED),
     }
 }
 
-fn extract_key(req: &Request) -> Option<String> {
+/// The SHA-256 of `presented` if it is one of `keys`, otherwise `None`.
+///
+/// Shared with `middleware::rate_limit`, which keys a caller's token bucket
+/// on the returned hash so an authenticated caller gets a budget of their own
+/// rather than sharing one with everyone behind the same NAT. That sharing is
+/// the point of factoring this out: if the rate limiter decided "is this a
+/// valid key" by any other rule than the one enforced here, a caller could be
+/// bucketed as authenticated and then rejected as unauthenticated, or worse,
+/// get a fresh bucket for a key auth would refuse.
+///
+/// Constant-time and non-short-circuiting: every stored hash is compared even
+/// after a match, so the time this takes says nothing about *which* key
+/// matched or how many were checked. The final branch reveals only whether
+/// some key matched, which the response status makes public anyway.
+pub(crate) fn match_key(keys: &[[u8; 32]], presented: &str) -> Option<[u8; 32]> {
+    use sha2::{Digest, Sha256};
+    use subtle::ConstantTimeEq;
+
+    let mut hasher = Sha256::new();
+    hasher.update(presented.as_bytes());
+    let request_hash: [u8; 32] = hasher.finalize().into();
+
+    let mut matched = 0u8;
+    for valid_hash in keys {
+        matched |= valid_hash.ct_eq(&request_hash).unwrap_u8();
+    }
+
+    (matched == 1).then_some(request_hash)
+}
+
+pub(crate) fn extract_key(req: &Request) -> Option<String> {
     if let Some(value) = req.headers().get("x-api-key") {
         return value.to_str().ok().map(str::to_string);
     }

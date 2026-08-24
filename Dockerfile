@@ -11,6 +11,12 @@ WORKDIR /build
 # missing one fails the build outright ("failed to load manifest for
 # workspace member"). Adding a crate to `[workspace] members` means adding it
 # to the three lists below.
+
+# Copied before the first `cargo build` so rustup installs and uses the exact
+# toolchain this repository pins (rust-toolchain.toml), the same one CI builds
+# and tests with. Without it the image builds on whatever `rust:1-bookworm`
+# happens to resolve to that day — a compiler no CI run has ever exercised.
+COPY rust-toolchain.toml ./
 COPY Cargo.toml Cargo.lock ./
 COPY crates/core/Cargo.toml crates/core/Cargo.toml
 COPY crates/api/Cargo.toml crates/api/Cargo.toml

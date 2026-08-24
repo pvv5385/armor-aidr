@@ -77,7 +77,15 @@ in the raw input as received — this is an open, tracked issue.
 The session store and the PII vault (`crates/storage/src/sessions.rs`,
 `vault.rs`) key on `session_id` alone. There is no `tenant_id` column and no
 tenant model — `middleware/auth.rs` treats an API key as a pass/fail
-credential with no identity attached.
+credential, and nothing maps a key to a tenant.
+
+The one place a key currently carries any identity is rate limiting:
+`middleware/rate_limit.rs` counts an authenticated request against the SHA-256
+of its key rather than the client IP, so each key gets its own budget. That is
+a budget boundary, not a security boundary — it isolates *throughput* between
+key holders and nothing else. It grants no separation of session state, vault
+entries, profiles, or audit data, and it must not be read as partial
+multi-tenancy.
 
 `session_id` is caller-supplied via `X-Armor-Session-Id`, so if two tenants
 ever share one database, a caller who guesses or replays another tenant's

@@ -18,8 +18,10 @@ tokio = { version = "1", features = ["net", "time"] }
 # no crate to the tree. rustls keeps the Docker image free of system OpenSSL.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "rustls-native-certs"] }
 # Bounded result cache (cache.rs) — same version armor-api already pins.
-# 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
-lru = "0.16"
+# 0.18.2+ fixes RUSTSEC-2026-0253 (use-after-free: `LruCache::pop()` was not
+# panic-safe, leaving dangling pointers in the intrusive list). Supersedes the
+# earlier 0.16.3 pin for RUSTSEC-2026-0002 (unsound IterMut).
+lru = "0.18"
 # The cache key (cache.rs) needs collision resistance, not just speed — same
 # version armor-api/armor-storage already pin.
 sha2 = "0.10"

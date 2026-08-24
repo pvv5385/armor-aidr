@@ -10,8 +10,7 @@
 //! `docker run --rm -p 16399:6379 redis:7-alpine` and
 //! `ARMOR_TEST_REDIS_URL=redis://127.0.0.1:16399 cargo test -p armor-api --test redis_rate_limit_integration`.
 
-use std::net::IpAddr;
-
+use armor_api::middleware::rate_limit::BucketKey;
 use armor_api::middleware::redis_rate_limit::RedisLimiter;
 
 fn test_redis_url() -> Option<String> {
@@ -20,8 +19,8 @@ fn test_redis_url() -> Option<String> {
         .filter(|u| !u.trim().is_empty())
 }
 
-fn ip(s: &str) -> IpAddr {
-    s.parse().unwrap()
+fn ip(s: &str) -> BucketKey {
+    BucketKey::Ip(s.parse().unwrap())
 }
 
 macro_rules! skip_without_redis {

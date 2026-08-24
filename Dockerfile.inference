@@ -36,25 +36,35 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY inference/pyproject.toml inference/README.md ./inference/
+COPY inference/pyproject.toml inference/README.md inference/requirements-serve.lock ./inference/
 COPY inference/src ./inference/src
 
-# For a GPU serving build, swap `[onnx]` for `[cuda]` below (pulls
-# onnxruntime-gpu instead — see inference/README.md's GPU section). Leave
-# `[export]` as-is either way when WITH_EXPORT=true: it depends on bare
-# `optimum-onnx` (no `[onnxruntime]`/`[onnxruntime-gpu]` extra),
-# specifically so it never installs its own onnxruntime and shadows
-# whichever one `[onnx]`/`[cuda]` put there.
+# The default (serving) build installs from the hash-pinned lock, so the image
+# is reproducible and `pip-audit` in .github/workflows/audit.yml audits the
+# versions that actually ship. Two steps because `--require-hashes` refuses a
+# local path dependency: the lock brings in every third-party package, then
+# `--no-deps ./inference` adds this project's own code without re-resolving
+# anything. Regenerating the lock is documented in its header.
 #
-# CPU-only torch (from the PyTorch CPU index, not pip's default resolution
-# of optimum's torch dependency, which can pull a much larger CUDA-enabled
-# wheel even though export never touches the GPU) only goes in when
-# WITH_EXPORT=true asks for it.
+# For a GPU serving build, install the `[cuda]` extra instead of the lock
+# (pulls onnxruntime-gpu — see inference/README.md's GPU section); the lock
+# pins the CPU `onnxruntime`.
+#
+# WITH_EXPORT=true takes the unlocked path deliberately: the [export] stack
+# (torch + optimum) resolves across two indexes and is a one-time, CPU-bound
+# model-conversion step that never serves a request, so it is not part of the
+# locked serving surface. Leave `[export]` as-is there — it depends on bare
+# `optimum-onnx` (no `[onnxruntime]`/`[onnxruntime-gpu]` extra), specifically
+# so it never installs its own onnxruntime and shadows whichever one
+# `[onnx]`/`[cuda]` put there. CPU-only torch comes from the PyTorch CPU index
+# rather than pip's default resolution of optimum's torch dependency, which can
+# pull a much larger CUDA-enabled wheel even though export never touches a GPU.
 RUN if [ "$WITH_EXPORT" = "true" ]; then \
         pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
         pip install --no-cache-dir "./inference[onnx,export]"; \
     else \
-        pip install --no-cache-dir "./inference[onnx]"; \
+        pip install --no-cache-dir --require-hashes -r ./inference/requirements-serve.lock && \
+        pip install --no-cache-dir --no-deps ./inference; \
     fi
 
 # The task catalog is shared with armor-core, so it comes from the repo's

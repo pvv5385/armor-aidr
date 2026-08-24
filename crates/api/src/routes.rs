@@ -218,12 +218,83 @@ fn cors_layer(settings: &Settings) -> Option<CorsLayer> {
     )
 }
 
+/// Liveness: is this process running and able to answer at all. Deliberately
+/// unconditional — a restart is the only remedy a liveness failure has, and a
+/// dead Postgres is not something restarting `armor-api` fixes. Readiness is
+/// the probe that reflects dependencies; see `readyz` below.
 async fn healthz() -> StatusCode {
     StatusCode::OK
 }
 
-async fn readyz() -> StatusCode {
-    StatusCode::OK
+/// Whole-probe deadline for the readiness dependency check. A hung Postgres
+/// must not hold the probe open until the orchestrator's own timeout fires —
+/// an unanswered probe and a failed one are treated differently by some
+/// schedulers, and "we could not tell in 2s" is a not-ready answer.
+const READYZ_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Readiness: should a load balancer send this replica traffic right now.
+///
+/// Gated on Postgres alone, and only when this deployment configured it
+/// (`AppState.db`, i.e. `DATABASE_URL` set and `mode != Edge`). With a dead
+/// pool the control-plane CRUD routes, the Postgres audit sink, durable
+/// session state, and the vault all fail, so the replica genuinely cannot do
+/// its job.
+///
+/// Two configured dependencies are deliberately *not* gated on:
+///
+/// - **Redis rate limiting** fails **open** by design — a Redis outage allows
+///   requests rather than breaking them (`middleware::redis_rate_limit`'s
+///   module doc). Pulling the replica from rotation would convert a graceful
+///   degradation into lost capacity, and every other replica points at the
+///   same Redis, so it removes capacity without restoring the limit.
+/// - **The inference sidecar** is optional and degrades through the circuit
+///   breaker and each check's configured `fallback` (`ml::escalate`). A sick
+///   sidecar is the case the breaker exists to absorb; the deterministic tier
+///   still answers every request.
+///
+/// The failure body names which dependency is unready but never the
+/// underlying error — `/healthz` and `/readyz` are never auth-gated
+/// (`router`), and a `sqlx` error string can carry the database host and
+/// user. The detail goes to the log instead, where an operator can see it and
+/// an anonymous caller cannot.
+async fn readyz(State(state): State<AppState>) -> Response {
+    fn ready() -> Response {
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "ready" })),
+        )
+            .into_response()
+    }
+
+    fn not_ready(dependency: &'static str) -> Response {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "status": "not_ready",
+                "dependency": dependency,
+            })),
+        )
+            .into_response()
+    }
+
+    let Some(db) = state.db.as_ref() else {
+        return ready();
+    };
+
+    match tokio::time::timeout(READYZ_TIMEOUT, db.ping()).await {
+        Ok(Ok(())) => ready(),
+        Ok(Err(e)) => {
+            tracing::warn!(error = %e, "readiness probe: control-plane database is unreachable");
+            not_ready("database")
+        }
+        Err(_) => {
+            tracing::warn!(
+                timeout_secs = READYZ_TIMEOUT.as_secs(),
+                "readiness probe: control-plane database did not answer within the deadline"
+            );
+            not_ready("database")
+        }
+    }
 }
 
 /// Placeholder for every `/ui/*` route when `DATABASE_URL` isn't set — the
