@@ -33,7 +33,7 @@ tokio = { version = "1", features = ["rt", "sync"] }
 # pure Rust with no OpenSSL/ring build dependency, keeping the "one static
 # binary" property the Dockerfile and edge deployments rely on.
 aes-gcm = "0.10"
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
