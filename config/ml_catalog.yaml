@@ -30,8 +30,16 @@
 
 version: 1
 
-# Runner kinds the sidecar can construct. `stub` is dependency-free and always
+# Runner kinds a task's `runner:` may name. `stub` is dependency-free and always
 # present; the rest are lazy-imported only when a task asks for them.
+#
+# `guard_llm` is a declared seam, not a shipped capability: `registry.py` routes
+# it to `armor_inference.runners.guard_llm`, and that module does not exist yet,
+# so a task naming it fails as "unavailable" at load time. It is listed here so
+# the deep-semantic judge has a reserved kind and a routing path already agreed
+# between the catalog and the registry — see docs/KNOWN_LIMITATIONS.md's
+# "What's not evaluated at all yet". Contrast `nli`, which is fully implemented
+# (runners/nli.py) and simply not named by any task today.
 servable_runners: [stub, classifier, ner, embedding, nli, guard_llm]
 
 tasks:

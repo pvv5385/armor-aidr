@@ -134,6 +134,26 @@ jobs:
       - name: the shipped catalog is loadable
         run: python -m armor_inference.fetch --list
 
+      # inference/requirements-serve.lock is what Dockerfile.inference's serving
+      # image installs and what pip-audit gates on, so a lock that has drifted
+      # from pyproject.toml means both are describing an image nobody builds.
+      # Nothing else notices: editing a `>=` floor leaves the lock valid-looking
+      # and stale. Compares the resolved content (pins + hashes) rather than the
+      # files, so neither uv's generated header nor the lock's own explanatory
+      # header counts as a difference.
+      - name: the serving lock matches pyproject.toml
+        run: |
+          set -euo pipefail
+          pip install uv
+          uv pip compile inference/pyproject.toml --extra onnx \
+            --generate-hashes --universal --python-version 3.12 \
+            -o /tmp/requirements-serve.check
+          strip() { grep -vE '^\s*#' "$1" | grep -vE '^\s*$'; }
+          if ! diff -u <(strip inference/requirements-serve.lock) <(strip /tmp/requirements-serve.check); then
+            echo "::error::inference/requirements-serve.lock is stale. Regenerate it with the command in its header and commit the result."
+            exit 1
+          fi
+
   docker-build:
     name: docker build
     runs-on: ubuntu-latest
@@ -157,8 +177,87 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
-  # Still to come, when `armor-api` actually calls the
-  # sidecar: a cross-boundary job that boots armor-inference on its stub
-  # runners and runs `crates/api/tests/inference_integration.rs` against it.
-  # That job is the reason the two languages share a repository — treat it as
-  # required, never optional.
+  # The cross-boundary job: the reason the two languages share a repository.
+  # Treat it as required, never optional.
+  #
+  # The wire contract is one shape written out in three files
+  # (`crates/inference-client/src/contract.rs`,
+  # `inference/src/armor_inference/contract.py`, `proto/inference.proto`) and
+  # kept in agreement by hand. Every other test on either side answers with a
+  # fixture that side also wrote — `crates/api/tests/inference_integration.rs`
+  # runs against `MockTransport`, so it proves Rust agrees with Rust. Only this
+  # job puts a real `HttpTransport` in front of a real sidecar, which is the
+  # only way a renamed field, a changed enum spelling, or a moved status-code
+  # mapping gets caught before a deployment finds it.
+  contract:
+    name: cross-boundary contract (Rust ↔ Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@46511b1c83438f0dd37c02d843619ece5a4abb5b # 1.97.1
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+
+      # The BASE install only — no [onnx], no [export], no weights. The sidecar
+      # is designed to boot and serve the full contract on stub runners with no
+      # ML stack present, so this exercises the real wire format without
+      # downloading a model, and it keeps checking the property the image
+      # depends on.
+      - name: install the sidecar (stub runners, no ML stack)
+        run: pip install ./inference
+
+      # Compile BEFORE the sidecar is running, and deliberately as its own
+      # step. The sidecar's BatchProcessor enforces a 2s wall-clock budget per
+      # request (`inference/src/armor_inference/batching.py`) and answers 429
+      # when it is exceeded. That budget is wall-clock, so on a 2-core runner a
+      # concurrent `cargo` build starves the Python process past it and the
+      # test fails on a 429 that says nothing about the contract — observed
+      # exactly this way while developing this job. `--no-run` builds the same
+      # binary the run step then executes, so that step does no compilation and
+      # never competes with the service it is testing.
+      - name: build the test binary (before the sidecar, so they never compete for CPU)
+        run: cargo test -p armor-inference-client --locked --no-run
+
+      - name: boot the sidecar
+        run: |
+          set -euo pipefail
+          nohup python -m uvicorn armor_inference.main:app --port 9000 \
+            > sidecar.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:9000/healthz >/dev/null; then
+              echo "sidecar healthy"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::armor-inference did not become healthy within 60s"
+          cat sidecar.log
+          exit 1
+
+      # `--ignored` because the test is `#[ignore]`d: it needs a listening
+      # sidecar, so it must not fail a plain `cargo test` on a developer
+      # machine. `tee` so the next step can prove it actually ran.
+      - name: run the contract test against the live sidecar
+        env:
+          ARMOR_TEST_INFERENCE_URL: http://127.0.0.1:9000
+        run: |
+          set -o pipefail
+          cargo test -p armor-inference-client --locked -- \
+            --ignored --nocapture 2>&1 | tee contract-output.txt
+
+      # `cargo test -- --ignored` exits 0 when it matches nothing, so a renamed
+      # or deleted test would turn this whole job into a no-op that still
+      # reports green — the same failure mode the `SKIPPING` guard in the
+      # `rust` job exists to prevent.
+      - name: assert the contract test actually ran
+        run: |
+          if ! grep -q "^test it_speaks_to_the_real_sidecar \.\.\. ok" contract-output.txt; then
+            echo "::error::it_speaks_to_the_real_sidecar did not run; this job proved nothing."
+            exit 1
+          fi
+
+      - name: sidecar log
+        if: always()
+        run: cat sidecar.log || true

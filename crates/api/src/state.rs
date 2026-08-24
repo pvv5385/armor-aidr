@@ -104,3 +104,57 @@ impl AppState {
         (!token.is_empty()).then(|| token.to_string())
     }
 }
+
+/// Minimal `AppState` construction for unit tests inside this crate.
+///
+/// Every field is inert (no database, no vault, no sidecar, discard audit
+/// sink, telemetry and heartbeat disabled) so a test can vary the one thing
+/// it is actually about. Integration tests under `tests/` build their own,
+/// since they need the parts this deliberately leaves empty.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+    use armor_core::policy::schema::{ExecutionMode, FailMode, NormalizeConfig, PolicyConfig};
+
+    /// An `AppState` whose only meaningful field is `api_keys` — which is
+    /// `Some` exactly when `ARMOR_AUTH_MODE=api_key`, and is what
+    /// `middleware::rate_limit::resolve_bucket` reads to decide whether a
+    /// request can earn a key-shaped bucket.
+    pub(crate) fn state_with_api_keys(api_keys: Option<Arc<Vec<[u8; 32]>>>) -> AppState {
+        let policy = Arc::new(PolicyConfig {
+            id: "test".to_string(),
+            execution_mode: ExecutionMode::Parallel,
+            fail_mode: FailMode::FailOpen,
+            normalize: NormalizeConfig::default(),
+            checks: Vec::new(),
+        });
+        AppState {
+            profiles: crate::sync::LiveResolver::new(crate::profiles::ProfileResolver::single(
+                policy,
+            )),
+            api_keys,
+            rate_limiter: None,
+            telemetry: Arc::new(crate::telemetry::TelemetryEmitter::new(
+                false,
+                String::new(),
+                String::new(),
+            )),
+            audit_sink: Arc::new(crate::audit::DiscardAuditSink),
+            heartbeat: Arc::new(crate::heartbeat::Heartbeat::new(
+                false,
+                String::new(),
+                String::new(),
+                0,
+            )),
+            db: None,
+            custom_rules_dir: Arc::from(""),
+            session_ttl_seconds: None,
+            vault: None,
+            inference: None,
+            inference_budget_ms: 250,
+            inference_url: None,
+            inference_auth_token: None,
+            inference_token_file: "".into(),
+        }
+    }
+}

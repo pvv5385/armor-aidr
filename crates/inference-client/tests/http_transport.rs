@@ -556,8 +556,10 @@ async fn a_non_http_endpoint_is_refused() {
 // ── Against the real sidecar ───────────────────────────────────────────────
 
 /// The contract is one shape in three files (`contract.py`, `contract.rs`,
-/// `inference.proto`) and nothing so far proves the first two agree — every
-/// test above answers with a fixture this crate also wrote.
+/// `inference.proto`), kept in agreement by hand. Every test above answers
+/// with a fixture this crate also wrote, so they prove Rust agrees with
+/// Rust; this is the only one that puts a real transport in front of a real
+/// sidecar and so the only one that can catch the two drifting apart.
 ///
 /// `#[ignore]` because it needs `armor-inference` listening. Run it with:
 ///
@@ -567,10 +569,12 @@ async fn a_non_http_endpoint_is_refused() {
 ///       cargo test -p armor-inference-client -- --ignored
 /// ```
 ///
-/// This is the seed of a cross-boundary CI job that boots the real sidecar
-/// and runs this test unignored — not yet wired up; it lands with the
-/// request-path wiring, which is what will have a reason to boot the
-/// sidecar in CI.
+/// CI runs this on every push and pull request: the `contract` job in
+/// `.github/workflows/ci.yml` boots the sidecar on its stub runners and runs
+/// this test with `--ignored`. It stays `#[ignore]`d so a plain `cargo test`
+/// on a machine with no sidecar listening still passes. That job also asserts
+/// this test actually ran — renaming it without updating the guard there
+/// turns the job into a no-op that reports green.
 #[tokio::test]
 #[ignore = "needs a running armor-inference; set ARMOR_TEST_INFERENCE_URL"]
 async fn it_speaks_to_the_real_sidecar() {

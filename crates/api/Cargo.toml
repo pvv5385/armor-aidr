@@ -15,7 +15,9 @@ armor-core.workspace = true
 armor-storage.workspace = true
 armor-inference-client.workspace = true
 axum = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+# `time` for the whole-probe deadline on `/readyz`'s database check
+# (routes.rs) — a hung pool must not hold the probe open.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace", "timeout", "compression-gzip"] }
 # join_all for the concurrent escalation pass (ml.rs) — already in the tree
@@ -51,8 +53,10 @@ opentelemetry-appender-tracing = "0.32"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "rustls-native-certs"] }
 # install_id / event_id generation (telemetry.rs, heartbeat.rs, install_state.rs).
 uuid = { version = "1", features = ["v4"] }
-# 0.16.3+ fixes RUSTSEC-2026-0002 (unsound IterMut violating Stacked Borrows).
-lru = "0.16"
+# 0.18.2+ fixes RUSTSEC-2026-0253 (use-after-free: `LruCache::pop()` was not
+# panic-safe, leaving dangling pointers in the intrusive list). Supersedes the
+# earlier 0.16.3 pin for RUSTSEC-2026-0002 (unsound IterMut).
+lru = "0.18"
 # CIDR parsing for ARMOR_TRUSTED_PROXIES (middleware/rate_limit.rs's
 # trusted-hop X-Forwarded-For resolution). Already a transitive dep via
 # reqwest's resolver stack, so promoting it to direct adds no new crate.

@@ -1,0 +1,92 @@
+# cargo-deny configuration. Run locally with `cargo deny check`; CI runs it in
+# .github/workflows/audit.yml, where it replaces the bare `cargo audit` — the
+# `advisories` section below covers everything that job did, and adds the two
+# gates it never had: license policy and dependency provenance.
+#
+# Why license policy matters here specifically: this repository is Apache-2.0
+# with a hand-written NOTICE that makes claims about what it distributes. A
+# copyleft crate arriving as a transitive dependency would quietly invalidate
+# that, and nothing before this would have noticed.
+
+[graph]
+# Check every target the workspace actually builds for. Left at the default
+# (all targets) rather than narrowed to linux: the Dockerfiles build linux
+# images, but contributors develop on macOS and Windows, and a crate that is
+# only pulled in on one of those is still a crate this project distributes
+# source for.
+all-features = true
+
+[advisories]
+# RustSec advisories. `deny` on vulnerabilities is the gate `cargo audit`
+# provided; unmaintained is a warning rather than a failure because a crate
+# going unmaintained is a fact to act on deliberately (the way serde_yaml was
+# — see the workspace dependency comment in Cargo.toml), not a reason to break
+# every build until someone finds a replacement.
+yanked = "deny"
+unmaintained = "workspace"
+
+[licenses]
+# Every license below was observed in the current tree (373 packages, none
+# without a license field). Anything NOT on this list fails the build, which
+# is the point: a new dependency carrying an unreviewed license has to be
+# looked at by a person before it lands.
+allow = [
+    # The overwhelming majority of the tree, in its various spellings.
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "MIT-0",
+    "Unlicense",
+    # The ICU stack (icu_*, zerovec, yoke, tinystr, writeable, litemap,
+    # zerotrie, zerofrom, potential_utf) reached through unicode-normalization
+    # and url. Permissive; the Unicode license is a standard exception grant.
+    "Unicode-3.0",
+    # webpki-roots / webpki-root-certs — the Mozilla CA bundle reqwest and
+    # rustls use. A permissive *data* license, not a code license.
+    "CDLA-Permissive-2.0",
+    # ryu and whoami, both of which offer BSL-1.0 as one option in a dual/
+    # triple license (Apache-2.0 OR BSL-1.0 [OR MIT]). Boost is permissive.
+    "BSL-1.0",
+    # cssparser and dtoa-short, both reached only through `ammonia` (the HTML
+    # sanitizer armor-core uses in the web_sanitization detector). MPL-2.0 is
+    # file-level weak copyleft: it obliges publishing modifications to *those
+    # files*, which this project does not modify — it links them unchanged.
+    # Allowed deliberately, not by omission.
+    "MPL-2.0",
+]
+# Deliberately NOT allowed, so they fail loudly if one ever appears: GPL, AGPL,
+# LGPL, SSPL, CC-BY-NC, and every other copyleft or field-of-use-restricted
+# license. Note `r-efi` shows LGPL-2.1-or-later in its expression, but only as
+# one arm of `MIT OR Apache-2.0 OR LGPL-2.1-or-later` — cargo-deny satisfies
+# that OR with MIT, so no LGPL obligation is taken on.
+confidence-threshold = 0.9
+
+[bans]
+# Duplicate versions are a fact of any tree this size (rand 0.8/0.9, thiserror
+# 1/2, sha2 and its digest stack, getrandom, hashbrown, tower, tower-http).
+# They are worth seeing but not worth failing on: resolving them means waiting
+# for upstream crates to converge, which is not something a PR author can do.
+multiple-versions = "warn"
+# `warn`, not `deny`. The check's real target is a wildcard version on a
+# *registry* dependency (`foo = "*"`), but it also fires on this workspace's
+# own path dependencies (armor-core, armor-storage, armor-inference-client),
+# which carry no version requirement by construction. cargo-deny's
+# `allow-wildcard-paths` escape hatch only applies to crates marked
+# `publish = false`, and whether these are ever published to crates.io is an
+# open question, not something this file should decide. Revisit as `deny` +
+# `allow-wildcard-paths = true` if the workspace crates are marked unpublished.
+wildcards = "warn"
+
+[sources]
+# Everything must come from crates.io. A git or alternate-registry dependency
+# is a supply-chain decision that should be visible in a diff, not something
+# that can arrive quietly.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -15,12 +15,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cargo-audit:
+  # Replaces the previous bare `cargo audit`. `cargo deny check` runs the same
+  # RustSec advisory database (the `advisories` section of deny.toml) and adds
+  # two gates that job never had:
+  #
+  #   licenses — this repository is Apache-2.0 with a hand-written NOTICE that
+  #     makes claims about what it distributes. A copyleft crate arriving as a
+  #     transitive dependency would quietly invalidate that.
+  #   sources  — every crate must come from crates.io, so a git or alternate-
+  #     registry dependency has to show up in a diff rather than arrive quietly.
+  #
+  # The policy and the reasoning for each allowed license live in deny.toml.
+  cargo-deny:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@46511b1c83438f0dd37c02d843619ece5a4abb5b # 1.97.1
       - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-      - run: cargo install cargo-audit --locked
-      - run: cargo audit
+      - run: cargo install cargo-deny --locked
+      - run: cargo deny check
+
+  # The Rust side had an advisory gate; the Python sidecar did not, even though
+  # it is a network-facing service (fastapi/uvicorn/onnxruntime) shipped as its
+  # own deployable. This closes that half.
+  pip-audit:
+    name: pip-audit (armor-inference)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+
+      # `--no-deps` against the lock, not a resolve of pyproject.toml: the lock
+      # is exactly what Dockerfile.inference's serving image installs, so this
+      # audits the versions that actually ship rather than whatever a fresh
+      # resolution of the `>=` floors would pick today. Without the lock this
+      # job could pass while the built image carried a vulnerable transitive
+      # dependency it never saw.
+      - name: audit the serving lock
+        run: pip-audit --no-deps -r inference/requirements-serve.lock
+
+      # The [export] stack (torch/transformers/optimum) is not in the lock — see
+      # the lock's header for why. Audited by resolution instead so it is not
+      # simply unwatched; non-gating, because a resolved-today advisory here can
+      # fire on a version no image contains.
+      - name: audit the export stack (non-gating)
+        continue-on-error: true
+        run: pip-audit --dry-run "./inference[onnx,export]" || true

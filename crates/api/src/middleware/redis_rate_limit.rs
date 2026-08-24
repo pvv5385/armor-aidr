@@ -18,9 +18,9 @@
 //! comment): a dependency that only ever narrows what's allowed should never
 //! itself become the reason every request fails.
 
-use std::net::IpAddr;
-
 use redis::{aio::ConnectionManager, Client, Script};
+
+use crate::middleware::rate_limit::BucketKey;
 
 /// Atomic token-bucket check-and-decrement. `KEYS[1]` is the per-client key;
 /// `ARGV[1]`/`ARGV[2]` are capacity/refill-per-sec; `ARGV[3]` is the TTL (in
@@ -106,8 +106,8 @@ impl RedisLimiter {
     /// `true` if the request may proceed, consuming a token; `false` if the
     /// caller is over budget right now. Fails open (returns `true`) on any
     /// Redis error — see module doc comment.
-    pub async fn try_acquire(&self, ip: IpAddr) -> bool {
-        let key = format!("{}{ip}", self.key_prefix);
+    pub async fn try_acquire(&self, bucket: BucketKey) -> bool {
+        let key = format!("{}{bucket}", self.key_prefix);
         let mut conn = self.conn.clone();
 
         let result: redis::RedisResult<i64> = self

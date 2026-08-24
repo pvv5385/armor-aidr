@@ -1,0 +1,66 @@
+# Build context exclusions for both deployables (Dockerfile, Dockerfile.inference).
+#
+# Without this file the context is the whole working tree — `target/` alone is
+# multiple gigabytes on any machine that has run `cargo build`, and every
+# `make quickstart` / `docker compose build` uploads all of it to the daemon
+# before the first layer is even considered.
+#
+# Deliberately a denylist, not an allowlist (`*` + `!` re-includes): a new
+# `COPY` in either Dockerfile keeps working by default here, whereas under an
+# allowlist it would fail at build time with a missing path. Everything named
+# below is either a build artifact, a local secret, or something no `COPY` in
+# either Dockerfile reads.
+#
+# NOTE ON SYNTAX: this is not .gitignore. Docker matches with Go's
+# `filepath.Match` against the whole context-relative path, so a bare
+# `__pycache__` matches ONLY at the context root — it does not apply at every
+# depth the way the same line does in .gitignore. Anything that must match at
+# any depth needs an explicit `**/` prefix, which is why the recursive block
+# below is spelled that way.
+
+# Compiled output. The single biggest entry, and never an input: both images
+# build from source in their own builder stage.
+target
+
+# Not a build input, and it carries the full history.
+.git
+.gitignore
+
+# Local docker-compose overrides. `make ensure-inference-token` writes a real
+# ARMOR_INFERENCE_AUTH_TOKEN here, so this must never reach the daemon or a
+# build cache. No COPY reads it today; this keeps that true if one is added.
+.env
+
+# Bind-mount target for model weights (gigabytes, pinned by digest — see
+# .gitignore). The image never contains weights; the sidecar fetches them.
+models
+
+# Operator-authored config. The images ship the tracked defaults
+# (config/policies.yaml, config/ml_catalog.yaml); these are deployment-specific
+# and can carry identifiers that should not be baked into an image. The
+# `.yaml.example` templates do not match these patterns and stay in context.
+config/applications.yaml
+config/profiles/*.yaml
+config/custom_rules/*.yaml
+
+# Python build and test artifacts, at any depth. `inference/src` is COPYied
+# wholesale by Dockerfile.inference, so without the `**/` these would ride
+# along into the image — stale bytecode from a different interpreter version
+# is the failure mode.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+inference/build
+inference/dist
+inference/.venv
+
+# Not read by any COPY in either Dockerfile.
+docs
+scripts
+.github
+integrations
+**/*.log
+**/*.old

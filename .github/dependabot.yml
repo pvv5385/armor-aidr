@@ -6,7 +6,7 @@ version: 2
 # grouped by risk, with a low open-PR ceiling keeps the queue reviewable.
 #
 # Security advisories are separate from all of this: GitHub raises those
-# regardless of schedule or `open-pull-requests-limit`, and `cargo audit` in
+# regardless of schedule or `open-pull-requests-limit`, and `cargo deny` in
 # .github/workflows/audit.yml is the independent check that does not depend on
 # Dependabot being enabled for the repository at all.
 

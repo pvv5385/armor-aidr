@@ -194,6 +194,18 @@ impl PgPolicyStore {
         &self.pool
     }
 
+    /// Cheapest statement Postgres will accept, used by `armor-api`'s
+    /// `/readyz` (`routes.rs`). Readiness is polled every few seconds by
+    /// every replica's orchestrator, so this must do no real work — its only
+    /// job is to prove the pool can still hand out a live connection, which
+    /// is exactly the condition that decides whether this replica can serve
+    /// control-plane traffic. Distinct from `connect`, which runs migrations
+    /// and is a boot-time concern.
+    pub async fn ping(&self) -> Result<(), PolicyStoreError> {
+        sqlx::query("SELECT 1").execute(&self.pool).await?;
+        Ok(())
+    }
+
     pub async fn is_empty(&self) -> Result<bool, PolicyStoreError> {
         let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM profiles")
             .fetch_one(&self.pool)
